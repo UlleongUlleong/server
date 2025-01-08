@@ -1,0 +1,79 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  profile Profile @relation(fields: [profileId], references: [id])
+  /providerId String
+  email String @unique
+  hashPassword String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  //deletedAt Boolean @default(false)
+
+}
+
+model Provider {
+  id Int @id @default(autoincrement())
+  name String
+  createdAt DateTime @default(now())
+}
+
+model Profile {
+  /userId
+  nickname String 
+  imageUrl? String
+  createdAt DateTime(now())
+}
+
+model Token {
+  /userId
+  refreshToken String @unique
+  expiresAt String
+}
+
+
+model Provider {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  users     User[]
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  providerId   Int
+  email        String   @db.VarChar(30)
+  hashPassword String   @db.VarChar(50)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  deletedAt    DateTime?
+
+  provider     Provider @relation(fields: [providerId], references: [id])
+  profile      Profile?
+  token        Token?
+}
+
+model Profile {
+  userId    Int     @id
+  nickname  String  @db.VarChar(10)
+  imageUrl  String? @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id])
+}
+
+model Token {
+  userId     Int      @id
+  refreshToken String @db.VarChar(100)
+  expiresAt  DateTime
+
+  user       User    @relation(fields: [userId], references: [id])
+}
