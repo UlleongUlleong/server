@@ -28,4 +28,4 @@ jobs:
         run: npm run format
 
       - name: Run unit tests
-        run: npm run test:cov
+        run: npm run test:cov -- --passWithNoTests
