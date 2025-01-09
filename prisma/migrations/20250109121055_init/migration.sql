@@ -4,6 +4,7 @@ CREATE TABLE `Provider` (
     `name` VARCHAR(10) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
+    UNIQUE INDEX `Provider_name_key`(`name`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -11,10 +12,10 @@ CREATE TABLE `Provider` (
 CREATE TABLE `User` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `providerId` INTEGER NOT NULL,
-    `email` VARCHAR(30) NOT NULL,
-    `hashPassword` VARCHAR(50) NOT NULL,
+    `email` VARCHAR(255) NOT NULL,
+    `password` VARCHAR(100) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
     `deletedAt` DATETIME(3) NULL,
 
     UNIQUE INDEX `User_email_key`(`email`),
@@ -24,7 +25,7 @@ CREATE TABLE `User` (
 -- CreateTable
 CREATE TABLE `Profile` (
     `userId` INTEGER NOT NULL,
-    `nickname` VARCHAR(10) NOT NULL,
+    `nickname` VARCHAR(30) NOT NULL,
     `imageUrl` VARCHAR(255) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
