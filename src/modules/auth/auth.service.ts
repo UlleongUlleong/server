@@ -12,7 +12,6 @@ export class AuthService {
 
   async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
-    console.log(11);
     if (!user) {
       console.log('User not found');
       throw new UnauthorizedException();
