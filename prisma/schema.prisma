@@ -18,8 +18,8 @@ model Provider {
 model User {
   id           Int      @id @default(autoincrement())
   providerId   Int
-  email        String   @db.VarChar(30)
-  hashPassword String   @db.VarChar(50)
+  email        String   @unique @db.VarChar(30)
+  hashPassword String   @db.VarChar(100)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
   deletedAt    DateTime?
