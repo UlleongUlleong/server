@@ -1,0 +1,47 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Provider {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  users     User[]
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  providerId   Int
+  email        String   @unique @db.VarChar(30)
+  hashPassword String   @db.VarChar(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  deletedAt    DateTime?
+
+  provider     Provider @relation(fields: [providerId], references: [id])
+  profile      Profile?
+  token        Token?
+}
+
+model Profile {
+  userId    Int     @id
+  nickname  String  @db.VarChar(10)
+  imageUrl  String? @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id])
+}
+
+model Token {
+  userId     Int      @id
+  refreshToken String @db.VarChar(100)
+  expiresAt  DateTime
+
+  user       User    @relation(fields: [userId], references: [id])
+}
