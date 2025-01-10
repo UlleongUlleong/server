@@ -4,6 +4,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
+import { CheckEmailDto } from './dtos/check-email.dto';
 
 @Injectable()
 export class AuthService {
@@ -43,16 +44,16 @@ export class AuthService {
     });
   }
 
-  async registerOAuthUser(data: OAuthUserDto): Promise<void> {
+  async registerOAuthUser(oauthUserDto: OAuthUserDto): Promise<void> {
     const newUser: Prisma.UserCreateInput = {
-      email: data.email,
-      password: data.id,
+      email: oauthUserDto.email,
+      password: oauthUserDto.id,
       provider: {
-        connect: { name: data.provider },
+        connect: { name: oauthUserDto.provider },
       },
       profile: {
         create: {
-          nickname: data.nickname,
+          nickname: oauthUserDto.nickname,
         },
       },
     };
@@ -66,5 +67,12 @@ export class AuthService {
     });
 
     console.log(result);
+  }
+
+  async checkEmailDuplicate(checkEmailDto: CheckEmailDto): Promise<boolean> {
+    const { email } = checkEmailDto;
+    const user = await this.findUserByEmail(email);
+
+    return !!user;
   }
 }
