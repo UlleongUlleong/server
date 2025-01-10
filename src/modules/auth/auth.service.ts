@@ -65,7 +65,7 @@ export class AuthService {
   async registerEmailUser(
     createUserDto: CreateUserDto,
   ): Promise<UserWithProfile> {
-    const { email, password, nickname } = createUserDto;
+    const { email, password, confirmPassword, nickname } = createUserDto;
     const provider = 'local';
 
     const user = await this.findUserByEmail(email);
@@ -73,8 +73,13 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    const saltOfRounds = 10;
-    const hash = await bcrypt.hash(password, saltOfRounds);
+    console.log(this.comparePassword(password, confirmPassword));
+    if (!this.comparePassword(password, confirmPassword)) {
+      console.log('same password!');
+      throw new UnauthorizedException();
+    }
+
+    const hash = await this.hashPassword(password);
 
     return await this.createUser(email, hash, provider, nickname);
   }
@@ -118,5 +123,14 @@ export class AuthService {
     );
 
     return createdUserWithProfile;
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    const saltOfRounds = 10;
+    return await bcrypt.hash(password, saltOfRounds);
+  }
+
+  comparePassword(password: string, confirmPassword: string): boolean {
+    return password === confirmPassword;
   }
 }
