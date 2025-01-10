@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, ExtractJwt } from 'passport-jwt'
+import { Strategy, ExtractJwt } from 'passport-jwt';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
@@ -13,10 +13,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload) {
-    console.log(payload)
-    if (await this.prisma.user.findUnique({where:{id: payload.id}})){
-      return { userId: payload.id};
+    console.log(payload);
+    if (await this.prisma.user.findUnique({ where: { id: payload.id } })) {
+      return { userId: payload.id };
     }
-    throw new UnauthorizedException('유효하지 않은 토큰')
+    throw new UnauthorizedException('유효하지 않은 토큰');
   }
 }

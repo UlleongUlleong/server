@@ -9,7 +9,7 @@ generator client {
 
 model Provider {
   id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(10)
+  name      String   @unique @db.VarChar(10)
   createdAt DateTime @default(now())
 
   users     User[]
@@ -18,10 +18,10 @@ model Provider {
 model User {
   id           Int      @id @unique @default(autoincrement())
   providerId   Int
-  email        String   @unique @db.VarChar(30)
-  password String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(255)
+  password     String   @db.VarChar(100)
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  updatedAt    DateTime @updatedAt
   deletedAt    DateTime?
 
   provider     Provider @relation(fields: [providerId], references: [id])
@@ -32,8 +32,8 @@ model User {
 }
 
 model Profile {
-  userId    Int     @id @unique
-  nickname  String  @db.VarChar(10)
+  userId    Int     @id
+  nickname  String  @db.VarChar(30)
   imageUrl  String? @db.VarChar(255)
   createdAt DateTime @default(now())
 
