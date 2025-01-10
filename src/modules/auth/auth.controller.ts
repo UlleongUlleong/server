@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dtos/login.dto';
 import { CheckEmailDto } from './dtos/check-email.dto';
 import { ApiResponse } from 'src/common/interfaces/api-response.interface';
+import { UserWithProfile } from './interfaces/user-with-profile.interface';
+import { CreateUserDto } from './dtos/create-user.dto';
 // import { LocalAuthGuard } from './guards/local-auth.guard';
 
 @Controller('auth')
@@ -55,6 +57,19 @@ export class AuthController {
       message: isDuplicated
         ? '중복된 이메일입니다.'
         : '사용가능한 이메일입니다.',
+    };
+  }
+
+  @Post('register')
+  async register(
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<ApiResponse<UserWithProfile>> {
+    const user = await this.authService.registerEmailUser(createUserDto);
+
+    return {
+      status: 'success',
+      data: user,
+      message: '회원가입이 정상적으로 마무리되었습니다.',
     };
   }
 }
