@@ -8,12 +8,14 @@ import { CheckEmailDto } from './dtos/check-email.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { UserWithProfile } from './interfaces/user-with-profile.interface';
+import { MailService } from './mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -62,9 +64,14 @@ export class AuthService {
     return !!user;
   }
 
-  async registerEmailUser(
-    createUserDto: CreateUserDto,
-  ): Promise<UserWithProfile> {
+  generateVerificationCode(length: 6): string {
+    const max = 10 ** length - 1;
+    return Math.floor(Math.random() * max)
+      .toString()
+      .padStart(length, '0');
+  }
+
+  async registerEmailUser(createUserDto: CreateUserDto): Promise<void> {
     const { email, password, confirmPassword, nickname } = createUserDto;
     const provider = 'local';
 
@@ -73,15 +80,15 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    console.log(this.comparePassword(password, confirmPassword));
     if (!this.comparePassword(password, confirmPassword)) {
-      console.log('same password!');
       throw new UnauthorizedException();
     }
 
-    const hash = await this.hashPassword(password);
+    const verificationCode = this.generateVerificationCode(6);
+    await this.mailService.sendVerificationCode(email, verificationCode);
 
-    return await this.createUser(email, hash, provider, nickname);
+    const hash = await this.hashPassword(password);
+    // return await this.createUser(email, hash, provider, nickname);
   }
 
   async createUser(

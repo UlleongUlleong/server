@@ -63,13 +63,13 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() createUserDto: CreateUserDto,
-  ): Promise<ApiResponse<UserWithProfile>> {
-    const user = await this.authService.registerEmailUser(createUserDto);
+  ): Promise<ApiResponse<null>> {
+    await this.authService.registerEmailUser(createUserDto);
 
     return {
       status: 'success',
-      data: user,
-      message: '회원가입이 정상적으로 마무리되었습니다.',
+      data: null,
+      message: '인증코드가 메일로 발송되었습니다.',
     };
   }
 }
