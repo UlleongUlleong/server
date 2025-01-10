@@ -69,13 +69,7 @@ export class AuthService {
     const provider = 'local';
 
     const user = await this.findUserByEmail(email);
-    if (user && !user.deletedAt) {
-      // 존재하는 계정
-      throw new UnauthorizedException();
-    }
-
     if (user) {
-      // 비활성화된 계정
       throw new UnauthorizedException();
     }
 
