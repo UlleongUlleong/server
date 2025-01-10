@@ -16,7 +16,7 @@ model Provider {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
+  id           Int      @id @unique @default(autoincrement())
   providerId   Int
   email        String   @unique @db.VarChar(255)
   password     String   @db.VarChar(100)
@@ -27,6 +27,8 @@ model User {
   provider     Provider @relation(fields: [providerId], references: [id])
   profile      Profile?
   token        Token?
+  userMoodCategory UserMoodCategory[]
+  userAlcoholCategory UserAlcoholCategory[]
 }
 
 model Profile {
@@ -40,8 +42,44 @@ model Profile {
 
 model Token {
   userId     Int      @id
-  refreshToken String @db.VarChar(100)
-  expiresAt  DateTime
+  refreshToken String @db.VarChar(255)
+  expiresAt  Int
 
   user       User    @relation(fields: [userId], references: [id])
+}
+
+model MoodCategory {
+  id Int @id @default(autoincrement())
+  name String @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  userMoodCategory UserMoodCategory[]
+}
+
+model AlcoholCategory {
+  id Int @id @default(autoincrement())
+  name String @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  userAlcoholCategory UserAlcoholCategory[]
+}
+
+model UserMoodCategory {
+  userId Int
+  moodCategoryId Int
+
+  user User @relation(fields: [userId], references: [id])
+  moodCategory MoodCategory @relation(fields: [moodCategoryId], references: [id])
+
+  @@id([userId, moodCategoryId])
+}
+
+model UserAlcoholCategory {
+  userId Int
+  alcoholCategoryId Int
+
+  user User @relation(fields: [userId], references: [id])
+  alcoholCategory AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
+
+  @@id([userId, alcoholCategoryId])
 }
