@@ -7,7 +7,6 @@ import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { NaverStrategy } from './strategies/naver.strategy';
 import { KakaoStrategy } from './strategies/kakao.strategy';
-import { PrismaService } from 'src/prisma.service';
 import { MailService } from './mail/mail.service';
 
 @Module({
@@ -24,7 +23,6 @@ import { MailService } from './mail/mail.service';
     GoogleStrategy,
     NaverStrategy,
     KakaoStrategy,
-    PrismaService,
     JwtStrategy,
   ],
   controllers: [AuthController],

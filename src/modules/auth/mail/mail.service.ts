@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Transporter } from 'nodemailer';
 import * as nodemailer from 'nodemailer';
+import { emailTemplate } from './mail.template';
 
 @Injectable()
 export class MailService {
@@ -23,7 +24,7 @@ export class MailService {
       from: `"술렁술렁" <${process.env.MAIL_FROM}>`,
       to,
       subject: '[술렁술렁] 인증코드 안내',
-      html: code,
+      html: emailTemplate(code),
     };
 
     await this.transporter.sendMail(options);

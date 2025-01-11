@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { UserInfo } from './interfaces/userInfo.inerface';
@@ -9,17 +9,19 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Prisma, User, Profile } from '@prisma/client';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from 'src/common/modules/prisma.service';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { CheckEmailDto } from './dtos/check-email.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { UserWithProfile } from './interfaces/user-with-profile.interface';
 import { MailService } from './mail/mail.service';
+import Redis from 'ioredis';
 
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject('REDIS_CLIENT') private redis: Redis,
     private prisma: PrismaService,
     private jwtService: JwtService,
     private mailService: MailService,
@@ -139,9 +141,30 @@ export class AuthService {
       .padStart(length, '0');
   }
 
+  async saveNewUserInRedis(code: string, user: CreateUserDto): Promise<void> {
+    // 하루에 시도 10번
+    const attempKey = 'user:attemp:' + user.email;
+    const attemp = Number(await this.redis.get(attempKey));
+    if (attemp >= 10) {
+      throw new BadRequestException('인증 시도 횟수가 너무 많습니다.');
+    }
+    await this.redis.set(attempKey, 0, 'EX', 86400);
+    // 인증 코드 유효기간은 10분
+    const codeKey = 'user:code:' + user.email;
+    await this.redis.set(codeKey, code, 'EX', 600);
+    // 사용자 정보 임시 저장
+    const userKey = 'user:register:' + user.email;
+    const userData = {
+      email: user.email,
+      nickname: user.nickname,
+      password: await this.hashPassword(user.password),
+    };
+    await this.redis.hset(userKey, userData);
+    await this.redis.expire(userKey, 600);
+  }
+
   async registerEmailUser(createUserDto: CreateUserDto): Promise<void> {
-    const { email, password, confirmPassword, nickname } = createUserDto;
-    const provider = 'local';
+    const { email, password, confirmPassword } = createUserDto;
 
     const user = await this.findUserByEmail(email);
     if (user) {
@@ -153,10 +176,8 @@ export class AuthService {
     }
 
     const verificationCode = this.generateVerificationCode(6);
+    await this.saveNewUserInRedis(verificationCode, createUserDto);
     await this.mailService.sendVerificationCode(email, verificationCode);
-
-    const hash = await this.hashPassword(password);
-    // return await this.createUser(email, hash, provider, nickname);
   }
 
   async createUser(
