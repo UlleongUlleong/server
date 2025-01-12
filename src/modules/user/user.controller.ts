@@ -1,13 +1,13 @@
 import { Controller, Get, UseGuards, Put, Req, Body } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { UsersService } from './user.service';
+import { UserService } from './user.service';
 import { ResponseProfileDto } from './dtos/responseProfile.dto';
 import { CategoryDto } from './dtos/category.dto';
 import { ApiResponse } from 'src/common/interfaces/api-response.interface';
 
 @Controller('users')
-export class UsersController {
-  constructor(private userService: UsersService) {}
+export class UserController {
+  constructor(private userService: UserService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
