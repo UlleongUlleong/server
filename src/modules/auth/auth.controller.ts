@@ -18,19 +18,17 @@ export class AuthController {
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
   ): Promise<Response<UserInfo>> {
-    try {
-      const {
-        accessToken,
-        userInfo,
-      }: { accessToken: string; userInfo: UserInfo } =
-        await this.authService.login(loginDto);
-      res.header('Authorization', `Bearer ${accessToken}`);
-      return res.status(200).json(userInfo);
-    } catch (err) {
-      return res
-        .status(err.status || 500)
-        .json({ message: err.message || '서버 에러' });
-    }
+    const {
+      accessToken,
+      userInfo,
+    }: { accessToken: string; userInfo: UserInfo } =
+      await this.authService.login(loginDto);
+    res.header('Authorization', `Bearer ${accessToken}`);
+    return res.status(200).json({
+      status: 'success',
+      data: userInfo,
+      message: '로그인 성공',
+    });
   }
 
   @Post('login/activate')
@@ -38,20 +36,18 @@ export class AuthController {
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
   ): Promise<Response<UserInfo>> {
-    try {
-      await this.authService.activateAccount(loginDto);
-      const {
-        accessToken,
-        userInfo,
-      }: { accessToken: string; userInfo: UserInfo } =
-        await this.authService.login(loginDto);
-      res.header('Authorization', `Bearer ${accessToken}`);
-      return res.status(200).json(userInfo);
-    } catch (err) {
-      return res
-        .status(err.status || 500)
-        .json({ message: err.message || '서버 에러' });
-    }
+    await this.authService.activateAccount(loginDto);
+    const {
+      accessToken,
+      userInfo,
+    }: { accessToken: string; userInfo: UserInfo } =
+      await this.authService.login(loginDto);
+    res.header('Authorization', `Bearer ${accessToken}`);
+    return res.status(200).json({
+      status: 'success',
+      data: userInfo,
+      message: '계정 활성화 성공',
+    });
   }
 
   @Get('/google')
