@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { ResponseProfileDto } from './dtos/responseProfile.dto';
+import { CategoryDto } from './dtos/category.dto';
 import { PrismaService } from '../../common/modules/prisma.service';
-import { ResponseProfileDto } from './dtos/profile.dto';
 
 @Injectable()
 export class UserService {
@@ -19,16 +20,25 @@ export class UserService {
         moodCategory: true,
       },
     });
+
+    const alcoholCategory = getUserAlcohol.map((item) => {
+      const { id, name } = item.alcoholCategory;
+      return { id, name };
+    });
+
+    const moodCategory = getUserMood.map((item) => {
+      const { id, name } = item.moodCategory;
+      return { id, name };
+    });
     return {
-      moodCategory: getUserMood.map((item) => item.moodCategory),
-      alcoholCategory: getUserAlcohol.map((item) => item.alcoholCategory),
+      moodCategory: moodCategory,
+      alcoholCategory: alcoholCategory,
     };
   }
 
   async updateUserProfile(
     userId: number,
-    alcoholCategory: number[],
-    moodCategory: number[],
+    categoryDto: CategoryDto,
   ): Promise<ResponseProfileDto | null> {
     await this.prisma.userAlcoholCategory.deleteMany({
       where: {
@@ -40,15 +50,15 @@ export class UserService {
         userId: userId,
       },
     });
-    await this.createUserProfile(userId, alcoholCategory, moodCategory);
+    await this.createUserProfile(userId, categoryDto);
     return await this.findUserProfile(userId);
   }
 
   async createUserProfile(
     userId: number,
-    alcoholCategory: number[],
-    moodCategory: number[],
+    categoryDto: CategoryDto,
   ): Promise<void> {
+    const { alcoholCategory, moodCategory } = categoryDto;
     await this.prisma.userAlcoholCategory.createMany({
       data: alcoholCategory.map((item) => ({
         userId: userId,

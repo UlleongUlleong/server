@@ -9,11 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { UserInfo } from './interfaces/userInfo.inerface';
 import { ResponseLogin } from './interfaces/reponse-login.interface';
-import {
-  UnauthorizedException,
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma, User, Profile } from '@prisma/client';
 import { PrismaService } from 'src/common/modules/prisma.service';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
@@ -33,24 +29,6 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
   ) {}
-
-  async validateUser(email: string, password: string) {
-    const user = await this.findUserByEmail(email);
-    if (!user) {
-      console.log('User not found');
-      throw new UnauthorizedException();
-    }
-
-    // 비밀번호 비교
-    // const isPasswordValid = await bcrypt.compare(password, user.hashPassword);
-    const isPasswordValid = password === user.password ? 1 : 0;
-    if (!isPasswordValid) {
-      console.log('Invalid password');
-      throw new UnauthorizedException();
-    }
-
-    return user;
-  }
 
   async findProfileByUid(userId: number): Promise<Profile | null> {
     return this.prisma.profile.findUnique({
@@ -90,6 +68,7 @@ export class AuthService {
 
   async login(loginDto: LocalLoginDto): Promise<ResponseLogin> {
     const { email, password } = loginDto;
+
     const user = await this.findUserByEmail(email);
     if (user && !(user.deletedAt === null)) {
       throw new ForbiddenException('탈퇴(비활성화)된 계정입니다.');
@@ -351,3 +330,6 @@ export class AuthService {
     return password === confirmPassword;
   }
 }
+
+// const hashedPassword = await bcrypt.hash(password, 10);
+// console.log(hashedPassword);

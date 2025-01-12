@@ -1,42 +1,41 @@
-import { Controller, Get, UseGuards, Request, Put } from '@nestjs/common';
-import { AuthService } from '../auth/auth.service';
+import { Controller, Get, UseGuards, Put, Req, Body } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { UserService } from './user.service';
-import { ProfileDto, ResponseProfileDto } from './dtos/profile.dto';
+import { UsersService } from './user.service';
+import { ResponseProfileDto } from './dtos/responseProfile.dto';
+import { CategoryDto } from './dtos/category.dto';
+import { ApiResponse } from 'src/common/interfaces/api-response.interface';
 
 @Controller('users')
-export class UserController {
-  constructor(
-    private authService: AuthService,
-    private userService: UserService,
-  ) {}
+export class UsersController {
+  constructor(private userService: UsersService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  async getUserCategory(@Request() req): Promise<ResponseProfileDto> {
-    try {
-      const { userId }: ProfileDto = req.user;
-      const userProfile = await this.userService.findUserProfile(userId);
-      return userProfile;
-    } catch (err) {
-      return err;
-    }
+  async getUserCategory(@Req() req): Promise<ApiResponse<ResponseProfileDto>> {
+    const { userId } = req.user;
+    const userProfile = await this.userService.findUserProfile(userId);
+    return {
+      status: 'success',
+      data: userProfile,
+      message: '프로필 조회',
+    };
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('profile')
-  async updateUserCategory(@Request() req): Promise<ResponseProfileDto> {
-    try {
-      const { userId }: ProfileDto = req.user;
-      const { alcoholCategory, moodCategory } = req.body;
-      const userProfile = await this.userService.updateUserProfile(
-        userId,
-        alcoholCategory,
-        moodCategory,
-      );
-      return userProfile;
-    } catch (err) {
-      return err;
-    }
+  async updateUserCategory(
+    @Req() req,
+    @Body() categoryDto: CategoryDto,
+  ): Promise<ApiResponse<ResponseProfileDto>> {
+    const { userId } = req.user;
+    const userProfile = await this.userService.updateUserProfile(
+      userId,
+      categoryDto,
+    );
+    return {
+      status: 'success',
+      data: userProfile,
+      message: '프로필 수정',
+    };
   }
 }
