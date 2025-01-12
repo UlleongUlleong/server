@@ -1,6 +1,9 @@
 import {
+  IsArray,
   IsEmail,
   IsNotEmpty,
+  IsNumber,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -30,4 +33,14 @@ export class CreateUserDto {
   @MinLength(2)
   @MaxLength(10)
   nickname: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  alcoholCategory?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  moodCategory?: number[];
 }
