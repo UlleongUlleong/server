@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma.service';
 import { ResponseProfileDto } from './dtos/responseProfile.dto';
 import { CategoryDto } from './dtos/category.dto';
+import { PrismaService } from '../../common/modules/prisma.service';
 
 @Injectable()
-export class UsersService {
+export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserProfile(userId: number): Promise<ResponseProfileDto | null> {
