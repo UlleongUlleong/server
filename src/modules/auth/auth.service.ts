@@ -9,11 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { UserInfo } from './interfaces/userInfo.inerface';
 import { ResponseLogin } from './interfaces/reponse-login.interface';
-import {
-  UnauthorizedException,
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma, User, Profile } from '@prisma/client';
 import { PrismaService } from 'src/common/modules/prisma.service';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
