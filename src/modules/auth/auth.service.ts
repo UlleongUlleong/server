@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { UserInfo } from './interfaces/userInfo.inerface';
@@ -17,6 +17,7 @@ import * as bcrypt from 'bcrypt';
 import { UserWithProfile } from './interfaces/user-with-profile.interface';
 import { MailService } from './mail/mail.service';
 import Redis from 'ioredis';
+import { VerifyCodeDto } from './dtos/verify-code.dto';
 
 @Injectable()
 export class AuthService {
@@ -127,6 +128,20 @@ export class AuthService {
     return await this.createUser(email, id, provider, nickname);
   }
 
+  async registerEmailUser(
+    verifyCodeDto: VerifyCodeDto,
+  ): Promise<UserWithProfile> {
+    const { email, code } = verifyCodeDto;
+    const isVerified = await this.verifyCode(email, code);
+
+    if (!isVerified) {
+      throw new BadRequestException('잘못된 코드를 입력하였습니다.');
+    }
+
+    const { password, nickname } = await this.getTempNewUser(email);
+    return await this.createUser(email, password, 'local', nickname);
+  }
+
   async checkEmailDuplicate(checkEmailDto: CheckEmailDto): Promise<boolean> {
     const { email } = checkEmailDto;
     const user = await this.findUserByEmail(email);
@@ -141,29 +156,84 @@ export class AuthService {
       .padStart(length, '0');
   }
 
-  async saveNewUserInRedis(code: string, user: CreateUserDto): Promise<void> {
-    // 하루에 시도 10번
-    const attempKey = 'user:attemp:' + user.email;
-    const attemp = Number(await this.redis.get(attempKey));
-    if (attemp >= 10) {
+  async saveNewUserInRedis(user: CreateUserDto, code: string): Promise<void> {
+    const hasEnough = await this.enoughVerificationAttemp(user.email);
+    if (!hasEnough) {
       throw new BadRequestException('인증 시도 횟수가 너무 많습니다.');
     }
-    await this.redis.set(attempKey, 0, 'EX', 86400);
-    // 인증 코드 유효기간은 10분
-    const codeKey = 'user:code:' + user.email;
-    await this.redis.set(codeKey, code, 'EX', 600);
-    // 사용자 정보 임시 저장
-    const userKey = 'user:register:' + user.email;
-    const userData = {
-      email: user.email,
-      nickname: user.nickname,
-      password: await this.hashPassword(user.password),
-    };
-    await this.redis.hset(userKey, userData);
-    await this.redis.expire(userKey, 600);
+    await this.setVerificationCode(user.email, code);
+    await this.setTempNewUser(user);
   }
 
-  async registerEmailUser(createUserDto: CreateUserDto): Promise<void> {
+  async verifyCode(email: string, verificationCode: string): Promise<boolean> {
+    const key = 'user:code:' + email;
+    const code = await this.redis.get(key);
+
+    await this.increaseVerificationAttemp(email);
+    if (!code) {
+      throw new UnauthorizedException();
+    }
+
+    return verificationCode === code;
+  }
+
+  async enoughVerificationAttemp(email: string): Promise<boolean> {
+    const key = 'user:attemp:' + email;
+    const attemp = Number(await this.redis.get(key));
+    if (!attemp) {
+      await this.redis.set(key, 0, 'EX', 86400);
+    }
+
+    return attemp < 10;
+  }
+
+  async increaseVerificationAttemp(email: string): Promise<void> {
+    const key = 'user:attemp:' + email;
+    const hasEnough = await this.enoughVerificationAttemp(email);
+    if (!hasEnough) {
+      throw new BadRequestException('인증 시도 횟수가 너무 많습니다.');
+    }
+    await this.redis.incr(key);
+  }
+
+  async setVerificationCode(email: string, code: string): Promise<void> {
+    const key = 'user:code:' + email;
+    await this.redis.set(key, code, 'EX', 600);
+  }
+
+  async setTempNewUser(user: CreateUserDto): Promise<void> {
+    const key = 'user:register:' + user.email;
+    const hash = await this.hashPassword(user.password);
+    const data = {
+      email: user.email,
+      nickname: user.nickname,
+      password: hash,
+    };
+    await this.redis.hset(key, data);
+    await this.redis.expire(key, 600);
+  }
+
+  async getTempNewUser(email: string): Promise<CreateUserDto> {
+    const key = 'user:register:' + email;
+    const password = await this.redis.hget(key, 'password');
+    const nickname = await this.redis.hget(key, 'nickname');
+    if (!password || !nickname) {
+      throw new BadRequestException();
+    }
+
+    const newUser: CreateUserDto = {
+      email,
+      password,
+      nickname,
+      confirmPassword: null,
+    };
+
+    return newUser;
+  }
+
+  async sendVerificationCodeToUser(
+    createUserDto: CreateUserDto,
+  ): Promise<void> {
     const { email, password, confirmPassword } = createUserDto;
 
     const user = await this.findUserByEmail(email);
@@ -176,7 +246,7 @@ export class AuthService {
     }
 
     const verificationCode = this.generateVerificationCode(6);
-    await this.saveNewUserInRedis(verificationCode, createUserDto);
+    await this.saveNewUserInRedis(createUserDto, verificationCode);
     await this.mailService.sendVerificationCode(email, verificationCode);
   }
 

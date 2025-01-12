@@ -8,6 +8,7 @@ import { CreateUserDto } from './dtos/create-user.dto';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Response } from 'express';
 import { UserInfo } from './interfaces/userInfo.inerface';
+import { VerifyCodeDto } from './dtos/verify-code.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -98,12 +99,25 @@ export class AuthController {
   async register(
     @Body() createUserDto: CreateUserDto,
   ): Promise<ApiResponse<null>> {
-    await this.authService.registerEmailUser(createUserDto);
+    await this.authService.sendVerificationCodeToUser(createUserDto);
 
     return {
       status: 'success',
       data: null,
       message: '인증코드가 메일로 발송되었습니다.',
+    };
+  }
+
+  @Post('verify-code')
+  async verifyCode(
+    @Body() verifyCodeDto: VerifyCodeDto,
+  ): Promise<ApiResponse<UserWithProfile>> {
+    const user = await this.authService.registerEmailUser(verifyCodeDto);
+
+    return {
+      status: 'success',
+      data: user,
+      message: '인증이 완료되었습니다.',
     };
   }
 }
