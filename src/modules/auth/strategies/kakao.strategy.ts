@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-kakao';
 import { AuthService } from '../auth.service';
-import { User } from '@prisma/client';
 import { OAuthUserDto } from '../dtos/oauth-user.dto';
+import { UserPayload } from '../interfaces/user-payload.interface';
 
 @Injectable()
 export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
@@ -20,15 +20,16 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
     accessToken: string,
     refreshToken: string,
     profile: Profile,
-  ): Promise<void> {
+  ): Promise<UserPayload> {
     const id: string = profile.id.toString();
     const email: string = profile._json.kakao_account.email;
     const provider: string = profile.provider;
     const nickname: string = profile.username;
 
-    const user: User = await this.authService.findUserByEmail(email);
+    const user: UserPayload =
+      await this.authService.findUserPayloadByEmail(email);
     if (user) {
-      return;
+      return user;
     }
 
     const oauthUser: OAuthUserDto = {
@@ -38,6 +39,6 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
       nickname,
     };
 
-    await this.authService.registerOAuthUser(oauthUser);
+    return await this.authService.registerOAuthUser(oauthUser);
   }
 }

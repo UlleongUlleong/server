@@ -31,7 +31,7 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsString()
   @MinLength(2)
-  @MaxLength(10)
+  @MaxLength(30)
   nickname: string;
 
   @IsOptional()

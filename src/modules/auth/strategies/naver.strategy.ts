@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-naver';
 import { AuthService } from '../auth.service';
-import { User } from '@prisma/client';
 import { OAuthUserDto } from '../dtos/oauth-user.dto';
+import { UserPayload } from '../interfaces/user-payload.interface';
 
 @Injectable()
 export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
@@ -19,16 +19,16 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
     accessToken: string,
     refreshToken: string,
     profile: Profile,
-  ): Promise<void> {
+  ): Promise<UserPayload> {
     const id: string = profile.id;
     const email: string = profile._json.email;
     const provider: string = profile.provider;
     const nickname: string = profile._json.nickname;
 
-    const user: User = await this.authService.findUserByEmail(email);
+    const user: UserPayload =
+      await this.authService.findUserPayloadByEmail(email);
     if (user) {
-      console.log('로그인 완료');
-      return;
+      return user;
     }
 
     const oauthUser: OAuthUserDto = {
@@ -38,6 +38,6 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
       nickname,
     };
 
-    await this.authService.registerOAuthUser(oauthUser);
+    return await this.authService.registerOAuthUser(oauthUser);
   }
 }
