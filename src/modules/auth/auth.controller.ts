@@ -6,10 +6,11 @@ import {
   Res,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { CheckEmailDto } from './dtos/check-email.dto';
+import { EmailDto } from './dtos/email.dto';
 import { ApiResponse } from 'src/common/interfaces/api-response.interface';
 import { UserPayload } from './interfaces/user-payload.interface';
 import { CreateUserDto } from './dtos/create-user.dto';
@@ -18,6 +19,7 @@ import { Response } from 'express';
 import { UserInfo } from './interfaces/userInfo.inerface';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
 import { OAuthRequest } from './interfaces/oauth-request.interface';
+import { NicknameDto } from './dtos/nickname.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -132,27 +134,48 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Post('/check-email')
-  async emailCheck(
-    @Body() checkEmailDto: CheckEmailDto,
+  @Post('/accounts')
+  async createUser(
+    @Body() createUserDto: CreateUserDto,
   ): Promise<ApiResponse<null>> {
-    const isDuplicated =
-      await this.authService.checkEmailDuplicate(checkEmailDto);
+    await this.authService.registerEmailUser(createUserDto);
 
     return {
       status: 'success',
       data: null,
-      message: isDuplicated
-        ? '중복된 이메일입니다.'
-        : '사용가능한 이메일입니다.',
+      message: '회원가입이 완료되었습니다.',
     };
   }
 
-  @Post('register')
-  async register(
-    @Body() createUserDto: CreateUserDto,
+  @Get('/accounts/email')
+  async checkEmailExists(
+    @Query() emailDto: EmailDto,
   ): Promise<ApiResponse<null>> {
-    await this.authService.sendVerificationCodeToUser(createUserDto);
+    await this.authService.checkEmailDuplication(emailDto);
+
+    return {
+      status: 'success',
+      data: null,
+      message: '사용가능한 이메일입니다.',
+    };
+  }
+
+  @Get('/accounts/nickname')
+  async checkNicknameExists(
+    @Query() nicknameDto: NicknameDto,
+  ): Promise<ApiResponse<null>> {
+    await this.authService.checkNicknameDuplication(nicknameDto);
+
+    return {
+      status: 'success',
+      data: null,
+      message: '사용가능한 닉네임입니다.',
+    };
+  }
+
+  @Post('/email-codes')
+  async sendEmailCode(@Body() emailDto: EmailDto): Promise<ApiResponse<null>> {
+    await this.authService.sendEmailCode(emailDto);
 
     return {
       status: 'success',
@@ -161,15 +184,15 @@ export class AuthController {
     };
   }
 
-  @Post('verify-code')
-  async verifyCode(
+  @Post('/email-codes/verification')
+  async verifyEmailCode(
     @Body() verifyCodeDto: VerifyCodeDto,
-  ): Promise<ApiResponse<UserPayload>> {
-    const user = await this.authService.registerEmailUser(verifyCodeDto);
+  ): Promise<ApiResponse<null>> {
+    await this.authService.verifyEmailCode(verifyCodeDto);
 
     return {
       status: 'success',
-      data: user,
+      data: null,
       message: '인증이 완료되었습니다.',
     };
   }

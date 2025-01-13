@@ -13,13 +13,14 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma, User, Profile } from '@prisma/client';
 import { PrismaService } from 'src/common/modules/prisma.service';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
-import { CheckEmailDto } from './dtos/check-email.dto';
-import { CreateUserDto } from './dtos/create-user.dto';
+import { EmailDto } from './dtos/email.dto';
 import * as bcrypt from 'bcrypt';
 import { UserPayload } from './interfaces/user-payload.interface';
 import { MailService } from './mail/mail.service';
 import Redis from 'ioredis';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
+import { NicknameDto } from './dtos/nickname.dto';
+import { CreateUserDto } from './dtos/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -29,12 +30,6 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
   ) {}
-
-  async findProfileByUid(userId: number): Promise<Profile | null> {
-    return this.prisma.profile.findUnique({
-      where: { userId: userId },
-    });
-  }
 
   async isPasswordMatch(
     password: string,
@@ -99,6 +94,12 @@ export class AuthService {
     });
   }
 
+  async findProfileByNickname(nickname: string): Promise<Profile> {
+    return await this.prisma.profile.findUnique({
+      where: { nickname },
+    });
+  }
+
   async findUserPayloadByEmail(email: string): Promise<UserPayload> {
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -134,18 +135,21 @@ export class AuthService {
     return await this.createUser(email, id, provider, nickname, [], []);
   }
 
-  async registerEmailUser(verifyCodeDto: VerifyCodeDto): Promise<UserPayload> {
-    const { email, code } = verifyCodeDto;
-    const isVerified = await this.verifyCode(email, code);
+  async registerEmailUser(createUserDto: CreateUserDto): Promise<void> {
+    const {
+      email,
+      password,
+      confirmPassword,
+      nickname,
+      alcoholCategory = [],
+      moodCategory = [],
+    } = createUserDto;
 
-    if (!isVerified) {
-      throw new BadRequestException('잘못된 코드를 입력하였습니다.');
+    if (!this.comparePassword(password, confirmPassword)) {
+      throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
     }
 
-    const { password, nickname, alcoholCategory, moodCategory } =
-      await this.getTempNewUser(email);
-
-    return await this.createUser(
+    await this.createUser(
       email,
       password,
       'local',
@@ -155,40 +159,21 @@ export class AuthService {
     );
   }
 
-  async checkEmailDuplicate(checkEmailDto: CheckEmailDto): Promise<boolean> {
-    const { email } = checkEmailDto;
-    const user = await this.findUserPayloadByEmail(email);
+  async verifyEmailCode(verifyCodeDto: VerifyCodeDto): Promise<void> {
+    const { email, code } = verifyCodeDto;
 
-    return !!user;
-  }
+    const generatedCode = await this.checkEmailCodeExpiration(email);
+    await this.checkAttemptCount(email);
 
-  generateVerificationCode(length: 6): string {
-    const max = 10 ** length - 1;
-    return Math.floor(Math.random() * max)
-      .toString()
-      .padStart(length, '0');
-  }
-
-  async saveNewUserInRedis(user: CreateUserDto, code: string): Promise<void> {
-    const hasEnough = await this.enoughVerificationAttemp(user.email);
-    if (!hasEnough) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: '인증코드 시도 횟수가 너무 많습니다.',
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+    if (code !== generatedCode) {
+      throw new BadRequestException('인증 코드가 일치하지 않습니다.');
     }
-    await this.setVerificationCode(user.email, code);
-    await this.setTempNewUser(user);
   }
 
-  async verifyCode(email: string, verificationCode: string): Promise<boolean> {
+  async checkEmailCodeExpiration(email: string): Promise<string> {
     const key = 'user:code:' + email;
     const code = await this.redis.get(key);
 
-    await this.increaseVerificationAttemp(email);
     if (!code) {
       throw new HttpException(
         {
@@ -199,92 +184,68 @@ export class AuthService {
       );
     }
 
-    return verificationCode === code;
+    return code;
   }
 
-  async enoughVerificationAttemp(email: string): Promise<boolean> {
-    const key = 'user:attemp:' + email;
-    const attemp = Number(await this.redis.get(key));
-    if (!attemp) {
-      await this.redis.set(key, 0, 'EX', 86400);
+  async checkEmailDuplication(emailDto: EmailDto): Promise<void> {
+    const { email } = emailDto;
+    const user = await this.findUserByEmail(email);
+
+    if (user) {
+      throw new ConflictException('이미 가입이 완료된 계정입니다.');
     }
-
-    return attemp < 10;
   }
 
-  async increaseVerificationAttemp(email: string): Promise<void> {
-    const key = 'user:attemp:' + email;
-    const hasEnough = await this.enoughVerificationAttemp(email);
-    if (!hasEnough) {
-      throw new BadRequestException('인증 시도 횟수가 너무 많습니다.');
+  async checkNicknameDuplication(nicknameDto: NicknameDto): Promise<void> {
+    const { nickname } = nicknameDto;
+    const profile = await this.findProfileByNickname(nickname);
+
+    if (profile) {
+      throw new ConflictException('이미 사용되고 있는 닉네임입니다.');
     }
-    await this.redis.incr(key);
   }
 
-  async setVerificationCode(email: string, code: string): Promise<void> {
-    const key = 'user:code:' + email;
-    await this.redis.set(key, code, 'EX', 600);
+  generateEmailCode(length: 6): string {
+    const max = 10 ** length - 1;
+    return Math.floor(Math.random() * max)
+      .toString()
+      .padStart(length, '0');
   }
 
-  async setTempNewUser(user: CreateUserDto): Promise<void> {
-    const key = 'user:register:' + user.email;
-    const hash = await this.hashPassword(user.password);
-    const data = {
-      email: user.email,
-      nickname: user.nickname,
-      password: hash,
-      alcoholCategory: user.alcoholCategory?.join(),
-      moodCategory: user.moodCategory?.join(),
-    };
-    await this.redis.hset(key, data);
-    await this.redis.expire(key, 600);
+  async saveEmailCode(email: string, code: string): Promise<void> {
+    const userKey = 'user:code:' + email;
+    await this.redis.set(userKey, code, 'EX', 600);
+
+    const attemptKey = 'user:attempt:' + email;
+    const attemptCount = await this.redis.get(attemptKey);
+    if (!attemptCount) {
+      await this.redis.set(attemptKey, '0', 'EX', 86400);
+    }
   }
 
-  async getTempNewUser(email: string): Promise<CreateUserDto> {
-    const key = 'user:register:' + email;
-    const data = await this.redis.hgetall(key);
-    if (!data) {
+  async checkAttemptCount(email: string): Promise<number> {
+    const key = 'user:attempt:' + email;
+    const attemptCount = await this.redis.get(key);
+
+    if (Number(attemptCount) >= 10) {
       throw new HttpException(
         {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: '회원가입 정보가 만료됐습니다.',
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: '인증코드 시도 횟수가 너무 많습니다.',
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    const user: CreateUserDto = {
-      email: data.email,
-      password: data.password,
-      nickname: data.nickname,
-      confirmPassword: undefined,
-      alcoholCategory: data.alcoholCategory
-        ? data.alcoholCategory.split(',').map(Number)
-        : [],
-      moodCategory: data.moodCategory
-        ? data.moodCategory?.split(',').map(Number)
-        : [],
-    };
 
-    return user;
+    return await this.redis.incr(key);
   }
 
-  async sendVerificationCodeToUser(
-    createUserDto: CreateUserDto,
-  ): Promise<void> {
-    const { email, password, confirmPassword } = createUserDto;
+  async sendEmailCode(emailDto: EmailDto): Promise<void> {
+    const { email } = emailDto;
 
-    const user = await this.findUserPayloadByEmail(email);
-    if (user) {
-      throw new ConflictException('해당 이메일의 계정이 이미 존재합니다.');
-    }
-
-    if (!this.comparePassword(password, confirmPassword)) {
-      throw new BadRequestException('비밀번호가 일치하지 않습니다.');
-    }
-
-    const verificationCode = this.generateVerificationCode(6);
-    await this.saveNewUserInRedis(createUserDto, verificationCode);
-    await this.mailService.sendVerificationCode(email, verificationCode);
+    const verificationCode = this.generateEmailCode(6);
+    await this.saveEmailCode(email, verificationCode);
+    await this.mailService.sendCode(email, verificationCode);
   }
 
   async createUser(
@@ -349,6 +310,3 @@ export class AuthService {
     return password === confirmPassword;
   }
 }
-
-// const hashedPassword = await bcrypt.hash(password, 10);
-// console.log(hashedPassword);

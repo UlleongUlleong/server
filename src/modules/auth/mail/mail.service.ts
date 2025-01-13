@@ -19,7 +19,7 @@ export class MailService {
     });
   }
 
-  async sendVerificationCode(to: string, code: string) {
+  async sendCode(to: string, code: string) {
     const options: nodemailer.SendMailOptions = {
       from: `"술렁술렁" <${process.env.MAIL_FROM}>`,
       to,
