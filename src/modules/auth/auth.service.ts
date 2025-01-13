@@ -16,7 +16,7 @@ import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { CheckEmailDto } from './dtos/check-email.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import * as bcrypt from 'bcrypt';
-import { UserWithProfile } from './interfaces/user-with-profile.interface';
+import { UserPayload } from './interfaces/user-payload.interface';
 import { MailService } from './mail/mail.service';
 import Redis from 'ioredis';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
@@ -43,18 +43,12 @@ export class AuthService {
     return bcrypt.compare(password, hashPassword);
   }
 
-  async createAccessToken(user: User): Promise<string> {
-    const payload = {
-      id: user.id,
-    };
-    return this.jwtService.sign(payload, { expiresIn: '1h' });
+  async createAccessToken(user: UserPayload): Promise<string> {
+    return this.jwtService.sign(user, { expiresIn: '1h' });
   }
 
-  async createRefreshToken(user: User): Promise<string> {
-    const payload = {
-      id: user.id,
-    };
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+  async createRefreshToken(user: UserPayload): Promise<string> {
+    const refreshToken = this.jwtService.sign(user, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
 
     await this.prisma.token.upsert({
@@ -77,9 +71,9 @@ export class AuthService {
       throw new BadRequestException('뭔가 틀렸으~');
     }
 
-    const userProfile = await this.findProfileByUid(user.id);
-    const accessToken = await this.createAccessToken(user);
-    const refreshToken = await this.createRefreshToken(user);
+    const userProfile = await this.findUserPayloadByEmail(user.email);
+    const accessToken = await this.createAccessToken(userProfile);
+    const refreshToken = await this.createRefreshToken(userProfile);
 
     const userInfo: UserInfo = {
       id: user.id,
@@ -105,17 +99,42 @@ export class AuthService {
     });
   }
 
-  async registerOAuthUser(
-    oauthUserDto: OAuthUserDto,
-  ): Promise<UserWithProfile> {
+  async findUserPayloadByEmail(email: string): Promise<UserPayload> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        profile: {
+          select: {
+            nickname: true,
+            imageUrl: true,
+          },
+        },
+        provider: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    return user
+      ? {
+          id: user.id,
+          nickname: user.profile.nickname,
+          imageUrl: user.profile.imageUrl,
+          provider: user.provider.name,
+        }
+      : null;
+  }
+
+  async registerOAuthUser(oauthUserDto: OAuthUserDto): Promise<UserPayload> {
     const { email, id, provider, nickname } = oauthUserDto;
 
     return await this.createUser(email, id, provider, nickname, [], []);
   }
 
-  async registerEmailUser(
-    verifyCodeDto: VerifyCodeDto,
-  ): Promise<UserWithProfile> {
+  async registerEmailUser(verifyCodeDto: VerifyCodeDto): Promise<UserPayload> {
     const { email, code } = verifyCodeDto;
     const isVerified = await this.verifyCode(email, code);
 
@@ -138,7 +157,7 @@ export class AuthService {
 
   async checkEmailDuplicate(checkEmailDto: CheckEmailDto): Promise<boolean> {
     const { email } = checkEmailDto;
-    const user = await this.findUserByEmail(email);
+    const user = await this.findUserPayloadByEmail(email);
 
     return !!user;
   }
@@ -254,7 +273,7 @@ export class AuthService {
   ): Promise<void> {
     const { email, password, confirmPassword } = createUserDto;
 
-    const user = await this.findUserByEmail(email);
+    const user = await this.findUserPayloadByEmail(email);
     if (user) {
       throw new ConflictException('해당 이메일의 계정이 이미 존재합니다.');
     }
@@ -275,7 +294,7 @@ export class AuthService {
     nickname: string,
     alcoholCategory: number[],
     moodCategory: number[],
-  ): Promise<UserWithProfile> {
+  ): Promise<UserPayload> {
     const newUser: Prisma.UserCreateInput = {
       email,
       password,

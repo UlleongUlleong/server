@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
-import { User } from '@prisma/client';
 import { OAuthUserDto } from '../dtos/oauth-user.dto';
+import { UserPayload } from '../interfaces/user-payload.interface';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -20,15 +20,17 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     accessToken: string,
     refreshToken: string,
     profile: Profile,
-  ): Promise<void> {
+  ): Promise<UserPayload> {
     const id: string = profile._json.sub;
     const email: string = profile._json.email;
     const provider: string = profile.provider;
     const nickname: string = profile._json.name;
 
-    const user: User = await this.authService.findUserByEmail(email);
+    const user: UserPayload =
+      await this.authService.findUserPayloadByEmail(email);
     if (user) {
-      return;
+      console.log('로그인 완료');
+      return user;
     }
 
     const oauthUser: OAuthUserDto = {
@@ -38,6 +40,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       nickname,
     };
 
-    await this.authService.registerOAuthUser(oauthUser);
+    return await this.authService.registerOAuthUser(oauthUser);
   }
 }

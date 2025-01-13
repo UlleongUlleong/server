@@ -1,14 +1,23 @@
-import { Controller, Post, Body, Get, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Res,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { CheckEmailDto } from './dtos/check-email.dto';
 import { ApiResponse } from 'src/common/interfaces/api-response.interface';
-import { UserWithProfile } from './interfaces/user-with-profile.interface';
+import { UserPayload } from './interfaces/user-payload.interface';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Response } from 'express';
 import { UserInfo } from './interfaces/userInfo.inerface';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
+import { OAuthRequest } from './interfaces/oauth-request.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -57,7 +66,23 @@ export class AuthController {
 
   @Get('/google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleLoginCallback() {}
+  async googleLoginCallback(
+    @Req() req: OAuthRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user: UserPayload = req.user;
+    const accessToken = await this.authService.createAccessToken(user);
+    const refreshToken = await this.authService.createRefreshToken(user);
+
+    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
+    return res.redirect(process.env.FRONT_URL);
+  }
 
   @Get('/naver')
   @UseGuards(AuthGuard('naver'))
@@ -65,7 +90,23 @@ export class AuthController {
 
   @Get('/naver/callback')
   @UseGuards(AuthGuard('naver'))
-  async naverLoginCallback() {}
+  async naverLoginCallback(
+    @Req() req: OAuthRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user: UserPayload = req.user;
+    const accessToken = await this.authService.createAccessToken(user);
+    const refreshToken = await this.authService.createRefreshToken(user);
+
+    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
+    return res.redirect(process.env.FRONT_URL);
+  }
 
   @Get('/kakao')
   @UseGuards(AuthGuard('kakao'))
@@ -73,7 +114,23 @@ export class AuthController {
 
   @Get('/kakao/callback')
   @UseGuards(AuthGuard('kakao'))
-  async kakaoLoginCallback() {}
+  async kakaoLoginCallback(
+    @Req() req: OAuthRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user: UserPayload = req.user;
+    const accessToken = await this.authService.createAccessToken(user);
+    const refreshToken = await this.authService.createRefreshToken(user);
+
+    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
+    return res.redirect(process.env.FRONT_URL);
+  }
 
   @Post('/check-email')
   async emailCheck(
@@ -107,7 +164,7 @@ export class AuthController {
   @Post('verify-code')
   async verifyCode(
     @Body() verifyCodeDto: VerifyCodeDto,
-  ): Promise<ApiResponse<UserWithProfile>> {
+  ): Promise<ApiResponse<UserPayload>> {
     const user = await this.authService.registerEmailUser(verifyCodeDto);
 
     return {

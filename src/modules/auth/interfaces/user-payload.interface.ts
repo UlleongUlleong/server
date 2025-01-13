@@ -1,4 +1,4 @@
-export interface UserWithProfile {
+export interface UserPayload {
   id: number;
   nickname: string;
   imageUrl: string;
