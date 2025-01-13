@@ -205,11 +205,37 @@ export class AuthService {
     }
   }
 
-  generateEmailCode(length: 6): string {
-    const max = 10 ** length - 1;
+  generateRandomCode(length: number, base: number): string {
+    if (base < 2 || base > 36) {
+      throw new Error('진법은 2에서 36까지만 사용할 수 있습니다.');
+    }
+    const max = Math.pow(base, length);
     return Math.floor(Math.random() * max)
-      .toString()
+      .toString(base)
       .padStart(length, '0');
+  }
+
+  async generateRandomNickname(): Promise<string> {
+    const baseNickname = '만취멍';
+    let nickname = baseNickname + this.generateRandomCode(8, 16);
+    let attemptCount = 1;
+
+    while (await this.findProfileByNickname(nickname)) {
+      nickname = baseNickname + this.generateRandomCode(8, 16);
+      ++attemptCount;
+
+      if (Number(attemptCount) >= 10) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: '랜덤 닉네임 시도가 너무 많아졌습니다.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
+    return nickname;
   }
 
   async saveEmailCode(email: string, code: string): Promise<void> {
@@ -243,7 +269,8 @@ export class AuthService {
   async sendEmailCode(emailDto: EmailDto): Promise<void> {
     const { email } = emailDto;
 
-    const verificationCode = this.generateEmailCode(6);
+    const verificationCode = this.generateRandomCode(8, 16);
+    console.log(verificationCode);
     await this.saveEmailCode(email, verificationCode);
     await this.mailService.sendCode(email, verificationCode);
   }
