@@ -6,6 +6,7 @@ import {
   Res,
   UseGuards,
   Req,
+  Headers,
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -43,7 +44,7 @@ export class AuthController {
     });
   }
 
-  @Post('login/activate')
+  @Post('activate')
   async activateAccount(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
@@ -59,6 +60,19 @@ export class AuthController {
       status: 'success',
       data: userInfo,
       message: '계정 활성화 성공',
+    });
+  }
+
+  @Get('refresh')
+  async refresh(@Headers() headers, @Res() res): Promise<ApiResponse<string>> {
+    let token = headers['authorization'];
+    token = token.replace('Bearer ', '');
+    const { accessToken, refreshToken } = await this.authService.refresh(token);
+    res.header('Authorization', `Bearer ${accessToken}`);
+    return res.status(200).json({
+      status: 'success',
+      data: refreshToken,
+      message: '토큰 재발급',
     });
   }
 
