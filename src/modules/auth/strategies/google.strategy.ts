@@ -24,7 +24,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const id: string = profile._json.sub;
     const email: string = profile._json.email;
     const provider: string = profile.provider;
-    const nickname: string = profile._json.name;
+    const nickname: string = await this.authService.generateRandomNickname();
 
     const user: UserPayload =
       await this.authService.findUserPayloadByEmail(email);

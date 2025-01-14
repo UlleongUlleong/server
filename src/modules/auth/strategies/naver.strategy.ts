@@ -23,7 +23,7 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
     const id: string = profile.id;
     const email: string = profile._json.email;
     const provider: string = profile.provider;
-    const nickname: string = profile._json.nickname;
+    const nickname: string = await this.authService.generateRandomNickname();
 
     const user: UserPayload =
       await this.authService.findUserPayloadByEmail(email);
