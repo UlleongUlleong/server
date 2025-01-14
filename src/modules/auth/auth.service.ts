@@ -45,7 +45,7 @@ export class AuthService {
   async createRefreshToken(user: UserPayload): Promise<string> {
     const refreshToken = this.jwtService.sign(user, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
-    const key = `${user.id}`;
+    const key = `user:refresh:${user.id}`;
     let info = await this.redis.get(key);
     if (info) {
       await this.redis.del(key);
@@ -340,7 +340,7 @@ export class AuthService {
 
   async refresh(token: string) {
     const payload = this.jwtService.decode(token);
-    const boo = await this.redis.get(payload.id);
+    const boo = await this.redis.get(`user:refresh:${payload.id}`);
     if (!token || !boo) {
       throw new BadRequestException('재로그인 해주세요');
     }
