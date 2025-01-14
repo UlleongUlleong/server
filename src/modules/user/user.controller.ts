@@ -7,6 +7,7 @@ import {
   Body,
   Query,
   Post,
+  Patch,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserService } from './user.service';
@@ -16,6 +17,7 @@ import { CategoryDto } from './dtos/category.dto';
 import { NicknameDto } from './dtos/nickname.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { ResponseProfileDto } from './dtos/responseProfile.dto';
+import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
 
 @Controller('users')
 export class UserController {
@@ -87,6 +89,18 @@ export class UserController {
       status: 'success',
       data: null,
       message: '회원가입이 완료되었습니다.',
+    };
+  }
+
+  @Patch('disable')
+  async disableUser(
+    @Req() req: AuthenticateRequest,
+  ): Promise<ApiResponse<null>> {
+    await this.userService.disableUser(req.user.id);
+    return {
+      status: 'success',
+      data: null,
+      message: '계정이 비활성화 되었습니다.',
     };
   }
 }

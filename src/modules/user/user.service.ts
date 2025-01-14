@@ -193,4 +193,11 @@ export class UserService {
 
     return createdUserWithProfile;
   }
+
+  async disableUser(id: number): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
 }
