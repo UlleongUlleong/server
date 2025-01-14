@@ -51,7 +51,7 @@ export class AuthService {
       await this.redis.del(key);
     }
     await this.redis.set(key, refreshToken);
-    await this.redis.expire(key, exp);
+    await this.redis.expireat(key, exp);
     info = await this.redis.get(key);
     return refreshToken;
   }
