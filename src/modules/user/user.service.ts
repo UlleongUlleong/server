@@ -1,86 +1,115 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { Prisma, Profile, User } from '@prisma/client';
 import { PrismaService } from '../../common/modules/prisma.service';
 import { EmailDto } from './dtos/email.dto';
-import { CategoryDto } from './dtos/category.dto';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { NicknameDto } from './dtos/nickname.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
-import { ResponseProfileDto } from './dtos/responseProfile.dto';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
+import { ProfileDetail } from './interfaces/profile.interface';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-  async findUserProfile(userId: number): Promise<ResponseProfileDto | null> {
-    const getUserAlcohol = await this.prisma.userAlcoholCategory.findMany({
-      where: { userId: userId },
-      select: {
-        alcoholCategory: true,
+  async findProfileByNickname(nickname: string): Promise<Profile> {
+    return await this.prisma.profile.findUnique({
+      where: { nickname },
+    });
+  }
+
+  async findProfileWithRelation(id: number): Promise<ProfileDetail> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: true,
+        userAlcoholCategory: {
+          include: {
+            alcoholCategory: true,
+          },
+        },
+        userMoodCategory: {
+          include: {
+            moodCategory: true,
+          },
+        },
       },
     });
-    const getUserMood = await this.prisma.userMoodCategory.findMany({
-      where: { userId: userId },
-      select: {
-        moodCategory: true,
-      },
-    });
 
-    const alcoholCategory = getUserAlcohol.map((item) => {
-      const { id, name } = item.alcoholCategory;
-      return { id, name };
-    });
+    if (!user) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: '인증 코드가 만료됐습니다.',
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
-    const moodCategory = getUserMood.map((item) => {
-      const { id, name } = item.moodCategory;
-      return { id, name };
-    });
+    console.log(user);
+
     return {
-      moodCategory: moodCategory,
-      alcoholCategory: alcoholCategory,
+      nickname: user.profile.nickname,
+      moodCategory: user.userMoodCategory?.map((value) => ({
+        id: value.moodCategory.id,
+        name: value.moodCategory.name,
+      })),
+      alcoholCategory: user.userAlcoholCategory?.map((value) => ({
+        id: value.alcoholCategory.id,
+        name: value.alcoholCategory.name,
+      })),
     };
   }
 
   async updateUserProfile(
     userId: number,
-    categoryDto: CategoryDto,
-  ): Promise<ResponseProfileDto | null> {
-    await this.prisma.userAlcoholCategory.deleteMany({
-      where: {
-        userId: userId,
-      },
-    });
-    await this.prisma.userMoodCategory.deleteMany({
-      where: {
-        userId: userId,
-      },
-    });
-    await this.createUserProfile(userId, categoryDto);
-    return await this.findUserProfile(userId);
-  }
-
-  async createUserProfile(
-    userId: number,
-    categoryDto: CategoryDto,
+    updateProfileDto: UpdateProfileDto,
   ): Promise<void> {
-    const { alcoholCategory, moodCategory } = categoryDto;
-    await this.prisma.userAlcoholCategory.createMany({
-      data: alcoholCategory.map((item) => ({
-        userId: userId,
-        alcoholCategoryId: item,
-      })),
+    if (Object.keys(updateProfileDto).length === 0) {
+      throw new BadRequestException('수정할 정보를 입력해주세요.');
+    }
+
+    const {
+      nickname,
+      alcoholCategory = [],
+      moodCategory = [],
+    } = updateProfileDto;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (nickname) {
+        await tx.profile.update({
+          where: { userId },
+          data: { nickname },
+        });
+      }
+
+      await tx.userAlcoholCategory.deleteMany({
+        where: { userId },
+      });
+      await tx.userMoodCategory.deleteMany({
+        where: { userId },
+      });
+
+      await tx.userAlcoholCategory.createMany({
+        data: alcoholCategory.map((value) => ({
+          userId,
+          alcoholCategoryId: value,
+        })),
+      });
+      await tx.userMoodCategory.createMany({
+        data: moodCategory.map((value) => ({
+          userId,
+          moodCategoryId: value,
+        })),
+      });
     });
-    await this.prisma.userMoodCategory.createMany({
-      data: moodCategory.map((item) => ({
-        userId: userId,
-        moodCategoryId: item,
-      })),
-    });
-    return;
   }
 
   async checkEmailDuplication(emailDto: EmailDto): Promise<void> {
@@ -107,12 +136,6 @@ export class UserService {
     }
   }
 
-  async findProfileByNickname(nickname: string): Promise<Profile> {
-    return await this.prisma.profile.findUnique({
-      where: { nickname },
-    });
-  }
-
   async createEmailUser(createUserDto: CreateUserDto): Promise<void> {
     const {
       email,
@@ -127,9 +150,11 @@ export class UserService {
       throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
     }
 
+    const hash = await bcrypt.hash(password, 10);
+
     await this.createUser(
       email,
-      password,
+      hash,
       'local',
       nickname,
       alcoholCategory,

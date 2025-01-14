@@ -13,42 +13,42 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserService } from './user.service';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
 import { EmailDto } from './dtos/email.dto';
-import { CategoryDto } from './dtos/category.dto';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { NicknameDto } from './dtos/nickname.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
-import { ResponseProfileDto } from './dtos/responseProfile.dto';
 import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
+import { ProfileDetail } from './interfaces/profile.interface';
 
 @Controller('users')
 export class UserController {
   constructor(private userService: UserService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  async getUserCategory(@Req() req): Promise<ApiResponse<ResponseProfileDto>> {
-    const { userId } = req.user;
-    const userProfile = await this.userService.findUserProfile(userId);
+  @Get('me/profile')
+  async getUserProfile(
+    @Req() req: AuthenticateRequest,
+  ): Promise<ApiResponse<ProfileDetail>> {
+    const { id } = req.user;
+    const profile = await this.userService.findProfileWithRelation(id);
     return {
       status: 'success',
-      data: userProfile,
-      message: '프로필 조회',
+      data: profile,
+      message: '내 프로필을 가져왔습니다.',
     };
   }
 
   @UseGuards(JwtAuthGuard)
-  @Put('profile')
-  async updateUserCategory(
+  @Put('me/profile')
+  async updateUserProfile(
     @Req() req,
-    @Body() categoryDto: CategoryDto,
-  ): Promise<ApiResponse<ResponseProfileDto>> {
-    const { userId } = req.user;
-    const userProfile = await this.userService.updateUserProfile(
-      userId,
-      categoryDto,
-    );
+    @Body() updateProfileDto: UpdateProfileDto,
+  ): Promise<ApiResponse<ProfileDetail>> {
+    const { id } = req.user;
+    await this.userService.updateUserProfile(id, updateProfileDto);
+
     return {
       status: 'success',
-      data: userProfile,
+      data: null,
       message: '프로필 수정',
     };
   }
@@ -100,7 +100,7 @@ export class UserController {
     return {
       status: 'success',
       data: null,
-      message: '계정이 비활성화 되었습니다.',
+      message: '계정이 비활성화되었습니다.',
     };
   }
 }

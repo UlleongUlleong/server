@@ -13,8 +13,7 @@ import { EmailDto } from '../user/dtos/email.dto';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
-import { Response } from 'express';
-import { UserInfo } from './interfaces/user-info.interface.ts';
+import { Request, Response } from 'express';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 
@@ -26,40 +25,69 @@ export class AuthController {
   async login(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
-  ): Promise<Response<UserInfo>> {
-    const {
-      accessToken,
-      userInfo,
-    }: { accessToken: string; userInfo: UserInfo } =
+  ): Promise<Response<null>> {
+    const { accessToken, refreshToken } =
       await this.authService.login(loginDto);
+
     res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
     return res.status(200).json({
       status: 'success',
-      data: userInfo,
+      data: null,
       message: '로그인 성공',
     });
   }
 
-  @Post('login/activate')
+  @Post('activate')
   async activateAccount(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
-  ): Promise<Response<UserInfo>> {
+  ): Promise<Response<null>> {
     await this.authService.activateAccount(loginDto);
-    const {
-      accessToken,
-      userInfo,
-    }: { accessToken: string; userInfo: UserInfo } =
+    const { accessToken, refreshToken } =
       await this.authService.login(loginDto);
     res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
     return res.status(200).json({
       status: 'success',
-      data: userInfo,
-      message: '계정 활성화 성공',
+      data: null,
+      message: '계정이 활성화되었습니다.',
     });
   }
 
-  @Get('google')
+  @Get('refresh-token')
+  async refreshToken(
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<Response<null>> {
+    const token = req.cookies['refresh_token'];
+    const { accessToken, refreshToken } =
+      await this.authService.refreshToken(token);
+    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      data: null,
+      message: '토큰 재발급',
+    });
+  }
+
+  @Get('/google')
   @UseGuards(AuthGuard('google'))
   async googleLogin(): Promise<void> {}
 

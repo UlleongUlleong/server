@@ -29,7 +29,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const user: UserPayload =
       await this.authService.findUserPayloadByEmail(email);
     if (user) {
-      console.log('로그인 완료');
       return user;
     }
 

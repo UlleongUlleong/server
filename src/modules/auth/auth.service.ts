@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
@@ -12,13 +13,12 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/common/modules/prisma.service';
 import { MailService } from './mail/mail.service';
 import { UserService } from '../user/user.service';
-import { UserInfo } from './interfaces/user-info.interface.ts';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
-import { ResponseLogin } from './interfaces/reponse-login.interface';
 import { EmailDto } from '../user/dtos/email.dto';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
+import { JwtToken } from './interfaces/jwt-token.interface';
 
 @Injectable()
 export class AuthService {
@@ -44,40 +44,34 @@ export class AuthService {
   async createRefreshToken(user: UserPayload): Promise<string> {
     const refreshToken = this.jwtService.sign(user, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
-
-    await this.prisma.token.upsert({
-      where: { userId: user.id },
-      update: { refreshToken: refreshToken },
-      create: { userId: user.id, refreshToken, expiresAt: exp },
-    });
-
+    const key = `user:refresh:${user.id}`;
+    let info = await this.redis.get(key);
+    if (info) {
+      await this.redis.del(key);
+    }
+    await this.redis.set(key, refreshToken);
+    await this.redis.expireat(key, exp);
+    info = await this.redis.get(key);
     return refreshToken;
   }
 
-  async login(loginDto: LocalLoginDto): Promise<ResponseLogin> {
+  async login(loginDto: LocalLoginDto): Promise<JwtToken> {
     const { email, password } = loginDto;
-
     const user = await this.userService.findUserByEmail(email);
-    if (user && !(user.deletedAt === null)) {
+
+    if (!user || !(await this.isPasswordMatch(password, user.password))) {
+      throw new BadRequestException('이메일 비밀번호를 다시 확인해 주세요');
+    }
+
+    if (!user.isActive || user.deletedAt !== null) {
       throw new ForbiddenException('탈퇴(비활성화)된 계정입니다.');
     }
-    if (!user || !(await this.isPasswordMatch(password, user.password))) {
-      throw new BadRequestException('뭔가 틀렸으~');
-    }
 
-    const userProfile = await this.findUserPayloadByEmail(user.email);
-    const accessToken = await this.createAccessToken(userProfile);
-    const refreshToken = await this.createRefreshToken(userProfile);
+    const UserPayload = await this.findUserPayloadByEmail(email);
+    const accessToken = await this.createAccessToken(UserPayload);
+    const refreshToken = await this.createRefreshToken(UserPayload);
 
-    const userInfo: UserInfo = {
-      id: user.id,
-      email: user.email,
-      nickname: userProfile.nickname,
-      imageUrl: userProfile.imageUrl,
-      refreshToken,
-    };
-
-    return { accessToken, userInfo };
+    return { accessToken, refreshToken };
   }
 
   async activateAccount(loginDto: LocalLoginDto): Promise<void> {
@@ -90,19 +84,9 @@ export class AuthService {
   async findUserPayloadByEmail(email: string): Promise<UserPayload> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: {
-        id: true,
-        profile: {
-          select: {
-            nickname: true,
-            imageUrl: true,
-          },
-        },
-        provider: {
-          select: {
-            name: true,
-          },
-        },
+      include: {
+        profile: true,
+        provider: true,
       },
     });
 
@@ -221,8 +205,7 @@ export class AuthService {
   async sendEmailCode(emailDto: EmailDto): Promise<void> {
     const { email } = emailDto;
 
-    const verificationCode = this.generateRandomCode(8, 16);
-    console.log(verificationCode);
+    const verificationCode = this.generateRandomCode(6, 10);
     await this.saveEmailCode(email, verificationCode);
     await this.mailService.sendCode(email, verificationCode);
   }
@@ -230,5 +213,23 @@ export class AuthService {
   async hashPassword(password: string): Promise<string> {
     const saltOfRounds = 10;
     return await bcrypt.hash(password, saltOfRounds);
+  }
+
+  async refreshToken(token: string): Promise<JwtToken> {
+    if (!token) {
+      throw new UnauthorizedException('유효하지 않은 토큰입니다.');
+    }
+
+    const payload: UserPayload = this.jwtService.decode(token);
+    const boo = await this.redis.get(`user:refresh:${payload.id}`);
+    if (!boo) {
+      throw new BadRequestException('토큰이 만료되어 다시 로그인해주세요.');
+    }
+
+    delete payload.iat;
+    delete payload.exp;
+    const accessToken = await this.createAccessToken(payload);
+    const refreshToken = await this.createRefreshToken(payload);
+    return { accessToken, refreshToken };
   }
 }
