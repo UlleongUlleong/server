@@ -1,9 +1,21 @@
-import { Controller, Get, UseGuards, Put, Req, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Put,
+  Req,
+  Body,
+  Query,
+  Post,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserService } from './user.service';
-import { ResponseProfileDto } from './dtos/responseProfile.dto';
+import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { EmailDto } from './dtos/email.dto';
 import { CategoryDto } from './dtos/category.dto';
-import { ApiResponse } from 'src/common/interfaces/api-response.interface';
+import { NicknameDto } from './dtos/nickname.dto';
+import { CreateUserDto } from './dtos/create-user.dto';
+import { ResponseProfileDto } from './dtos/responseProfile.dto';
 
 @Controller('users')
 export class UserController {
@@ -36,6 +48,45 @@ export class UserController {
       status: 'success',
       data: userProfile,
       message: '프로필 수정',
+    };
+  }
+
+  @Get('email/availability')
+  async checkEmailExists(
+    @Query() emailDto: EmailDto,
+  ): Promise<ApiResponse<null>> {
+    await this.userService.checkEmailDuplication(emailDto);
+
+    return {
+      status: 'success',
+      data: null,
+      message: '사용가능한 이메일입니다.',
+    };
+  }
+
+  @Get('nickname/availability')
+  async checkNicknameExists(
+    @Query() nicknameDto: NicknameDto,
+  ): Promise<ApiResponse<null>> {
+    await this.userService.checkNicknameDuplication(nicknameDto);
+
+    return {
+      status: 'success',
+      data: null,
+      message: '사용가능한 닉네임입니다.',
+    };
+  }
+
+  @Post()
+  async createUser(
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<ApiResponse<null>> {
+    await this.userService.createEmailUser(createUserDto);
+
+    return {
+      status: 'success',
+      data: null,
+      message: '회원가입이 완료되었습니다.',
     };
   }
 }

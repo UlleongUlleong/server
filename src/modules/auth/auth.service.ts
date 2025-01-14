@@ -1,26 +1,24 @@
 import {
-  ConflictException,
+  BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { LocalLoginDto } from './dtos/local-login.dto';
-import { UserInfo } from './interfaces/userInfo.inerface';
-import { ResponseLogin } from './interfaces/reponse-login.interface';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { Prisma, User, Profile } from '@prisma/client';
-import { PrismaService } from 'src/common/modules/prisma.service';
-import { OAuthUserDto } from './dtos/oauth-user.dto';
-import { EmailDto } from './dtos/email.dto';
-import * as bcrypt from 'bcrypt';
-import { UserPayload } from './interfaces/user-payload.interface';
-import { MailService } from './mail/mail.service';
 import Redis from 'ioredis';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from 'src/common/modules/prisma.service';
+import { MailService } from './mail/mail.service';
+import { UserService } from '../user/user.service';
+import { UserInfo } from './interfaces/user-info.interface.ts';
+import { UserPayload } from '../../common/interfaces/user-payload.interface';
+import { ResponseLogin } from './interfaces/reponse-login.interface';
+import { EmailDto } from '../user/dtos/email.dto';
+import { OAuthUserDto } from './dtos/oauth-user.dto';
+import { LocalLoginDto } from './dtos/local-login.dto';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
-import { NicknameDto } from './dtos/nickname.dto';
-import { CreateUserDto } from './dtos/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +27,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private mailService: MailService,
+    private userService: UserService,
   ) {}
 
   async isPasswordMatch(
@@ -58,7 +57,7 @@ export class AuthService {
   async login(loginDto: LocalLoginDto): Promise<ResponseLogin> {
     const { email, password } = loginDto;
 
-    const user = await this.findUserByEmail(email);
+    const user = await this.userService.findUserByEmail(email);
     if (user && !(user.deletedAt === null)) {
       throw new ForbiddenException('탈퇴(비활성화)된 계정입니다.');
     }
@@ -85,18 +84,6 @@ export class AuthService {
     await this.prisma.user.update({
       where: { email: loginDto.email },
       data: { deletedAt: null },
-    });
-  }
-
-  async findUserByEmail(email: string): Promise<User> {
-    return await this.prisma.user.findUnique({
-      where: { email },
-    });
-  }
-
-  async findProfileByNickname(nickname: string): Promise<Profile> {
-    return await this.prisma.profile.findUnique({
-      where: { nickname },
     });
   }
 
@@ -129,33 +116,16 @@ export class AuthService {
       : null;
   }
 
-  async registerOAuthUser(oauthUserDto: OAuthUserDto): Promise<UserPayload> {
+  async createOAuthUser(oauthUserDto: OAuthUserDto): Promise<UserPayload> {
     const { email, id, provider, nickname } = oauthUserDto;
 
-    return await this.createUser(email, id, provider, nickname, [], []);
-  }
-
-  async registerEmailUser(createUserDto: CreateUserDto): Promise<void> {
-    const {
+    return await this.userService.createUser(
       email,
-      password,
-      confirmPassword,
+      id,
+      provider,
       nickname,
-      alcoholCategory = [],
-      moodCategory = [],
-    } = createUserDto;
-
-    if (!this.comparePassword(password, confirmPassword)) {
-      throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
-    }
-
-    await this.createUser(
-      email,
-      password,
-      'local',
-      nickname,
-      alcoholCategory,
-      moodCategory,
+      [],
+      [],
     );
   }
 
@@ -187,24 +157,6 @@ export class AuthService {
     return code;
   }
 
-  async checkEmailDuplication(emailDto: EmailDto): Promise<void> {
-    const { email } = emailDto;
-    const user = await this.findUserByEmail(email);
-
-    if (user) {
-      throw new ConflictException('이미 가입이 완료된 계정입니다.');
-    }
-  }
-
-  async checkNicknameDuplication(nicknameDto: NicknameDto): Promise<void> {
-    const { nickname } = nicknameDto;
-    const profile = await this.findProfileByNickname(nickname);
-
-    if (profile) {
-      throw new ConflictException('이미 사용되고 있는 닉네임입니다.');
-    }
-  }
-
   generateRandomCode(length: number, base: number): string {
     if (base < 2 || base > 36) {
       throw new Error('진법은 2에서 36까지만 사용할 수 있습니다.');
@@ -220,7 +172,7 @@ export class AuthService {
     let nickname = baseNickname + this.generateRandomCode(8, 16);
     let attemptCount = 1;
 
-    while (await this.findProfileByNickname(nickname)) {
+    while (await this.userService.findProfileByNickname(nickname)) {
       nickname = baseNickname + this.generateRandomCode(8, 16);
       ++attemptCount;
 
@@ -275,65 +227,8 @@ export class AuthService {
     await this.mailService.sendCode(email, verificationCode);
   }
 
-  async createUser(
-    email: string,
-    password: string,
-    provider: string,
-    nickname: string,
-    alcoholCategory: number[],
-    moodCategory: number[],
-  ): Promise<UserPayload> {
-    const newUser: Prisma.UserCreateInput = {
-      email,
-      password,
-      provider: {
-        connect: { name: provider },
-      },
-      profile: {
-        create: {
-          nickname,
-        },
-      },
-      userAlcoholCategory: {
-        create: alcoholCategory.map((id) => ({
-          alcoholCategory: { connect: { id } },
-        })),
-      },
-      userMoodCategory: {
-        create: moodCategory.map((id) => ({
-          moodCategory: { connect: { id } },
-        })),
-      },
-    };
-
-    const createdUserWithProfile = await this.prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.create({
-          data: newUser,
-          include: {
-            provider: true,
-            profile: true,
-          },
-        });
-
-        return {
-          id: user.id,
-          provider: user.provider.name,
-          nickname: user.profile.nickname,
-          imageUrl: user.profile.imageUrl,
-        };
-      },
-    );
-
-    return createdUserWithProfile;
-  }
-
   async hashPassword(password: string): Promise<string> {
     const saltOfRounds = 10;
     return await bcrypt.hash(password, saltOfRounds);
-  }
-
-  comparePassword(password: string, confirmPassword: string): boolean {
-    return password === confirmPassword;
   }
 }

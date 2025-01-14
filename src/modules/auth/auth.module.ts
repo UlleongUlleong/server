@@ -8,6 +8,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { NaverStrategy } from './strategies/naver.strategy';
 import { KakaoStrategy } from './strategies/kakao.strategy';
 import { MailService } from './mail/mail.service';
+import { UserService } from '../user/user.service';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MailService } from './mail/mail.service';
     NaverStrategy,
     KakaoStrategy,
     JwtStrategy,
+    UserService,
   ],
   controllers: [AuthController],
   exports: [AuthService],

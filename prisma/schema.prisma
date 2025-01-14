@@ -20,6 +20,7 @@ model User {
   providerId   Int
   email        String   @unique @db.VarChar(255)
   password     String   @db.VarChar(100)
+  isActive     Boolean  @default(1)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   deletedAt    DateTime?

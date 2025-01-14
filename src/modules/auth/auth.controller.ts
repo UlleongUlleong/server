@@ -6,20 +6,17 @@ import {
   Res,
   UseGuards,
   Req,
-  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { EmailDto } from './dtos/email.dto';
-import { ApiResponse } from 'src/common/interfaces/api-response.interface';
-import { UserPayload } from './interfaces/user-payload.interface';
-import { CreateUserDto } from './dtos/create-user.dto';
+import { EmailDto } from '../user/dtos/email.dto';
+import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Response } from 'express';
-import { UserInfo } from './interfaces/userInfo.inerface';
+import { UserInfo } from './interfaces/user-info.interface.ts';
 import { VerifyCodeDto } from './dtos/verify-code.dto';
-import { OAuthRequest } from './interfaces/oauth-request.interface';
-import { NicknameDto } from './dtos/nickname.dto';
+import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -62,14 +59,14 @@ export class AuthController {
     });
   }
 
-  @Get('/google')
+  @Get('google')
   @UseGuards(AuthGuard('google'))
   async googleLogin(): Promise<void> {}
 
-  @Get('/google/callback')
+  @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleLoginCallback(
-    @Req() req: OAuthRequest,
+    @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
     const user: UserPayload = req.user;
@@ -86,14 +83,14 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Get('/naver')
+  @Get('naver')
   @UseGuards(AuthGuard('naver'))
   async naverLogin(): Promise<void> {}
 
-  @Get('/naver/callback')
+  @Get('naver/callback')
   @UseGuards(AuthGuard('naver'))
   async naverLoginCallback(
-    @Req() req: OAuthRequest,
+    @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
     const user: UserPayload = req.user;
@@ -110,14 +107,14 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Get('/kakao')
+  @Get('kakao')
   @UseGuards(AuthGuard('kakao'))
   async kakaoLogin(): Promise<void> {}
 
-  @Get('/kakao/callback')
+  @Get('kakao/callback')
   @UseGuards(AuthGuard('kakao'))
   async kakaoLoginCallback(
-    @Req() req: OAuthRequest,
+    @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
     const user: UserPayload = req.user;
@@ -134,46 +131,7 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Post('/accounts')
-  async createUser(
-    @Body() createUserDto: CreateUserDto,
-  ): Promise<ApiResponse<null>> {
-    await this.authService.registerEmailUser(createUserDto);
-
-    return {
-      status: 'success',
-      data: null,
-      message: '회원가입이 완료되었습니다.',
-    };
-  }
-
-  @Get('/accounts/email')
-  async checkEmailExists(
-    @Query() emailDto: EmailDto,
-  ): Promise<ApiResponse<null>> {
-    await this.authService.checkEmailDuplication(emailDto);
-
-    return {
-      status: 'success',
-      data: null,
-      message: '사용가능한 이메일입니다.',
-    };
-  }
-
-  @Get('/accounts/nickname')
-  async checkNicknameExists(
-    @Query() nicknameDto: NicknameDto,
-  ): Promise<ApiResponse<null>> {
-    await this.authService.checkNicknameDuplication(nicknameDto);
-
-    return {
-      status: 'success',
-      data: null,
-      message: '사용가능한 닉네임입니다.',
-    };
-  }
-
-  @Post('/email-codes')
+  @Post('email-codes')
   async sendEmailCode(@Body() emailDto: EmailDto): Promise<ApiResponse<null>> {
     await this.authService.sendEmailCode(emailDto);
 
@@ -184,7 +142,7 @@ export class AuthController {
     };
   }
 
-  @Post('/email-codes/verification')
+  @Post('email-codes/verification')
   async verifyEmailCode(
     @Body() verifyCodeDto: VerifyCodeDto,
   ): Promise<ApiResponse<null>> {
