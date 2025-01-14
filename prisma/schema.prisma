@@ -33,7 +33,7 @@ model User {
 
 model Profile {
   userId    Int     @id
-  nickname  String  @db.VarChar(30)
+  nickname  String  @unique @db.VarChar(30)
   imageUrl  String? @db.VarChar(255)
   createdAt DateTime @default(now())
 
