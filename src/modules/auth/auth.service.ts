@@ -50,13 +50,14 @@ export class AuthService {
   async createRefreshToken(user: UserPayload): Promise<string> {
     const refreshToken = this.jwtService.sign(user, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
-
-    await this.prisma.token.upsert({
-      where: { userId: user.id },
-      update: { refreshToken: refreshToken },
-      create: { userId: user.id, refreshToken, expiresAt: exp },
-    });
-
+    const key = `${user.id}`;
+    let info = await this.redis.get(key);
+    if (info) {
+      await this.redis.del(key);
+    }
+    await this.redis.set(key, refreshToken);
+    await this.redis.expire(key, exp);
+    info = await this.redis.get(key);
     return refreshToken;
   }
 
@@ -68,7 +69,7 @@ export class AuthService {
       throw new ForbiddenException('탈퇴(비활성화)된 계정입니다.');
     }
     if (!user || !(await this.isPasswordMatch(password, user.password))) {
-      throw new BadRequestException('뭔가 틀렸으~');
+      throw new BadRequestException('이메일 비밀번호를 다시 확인해 주세요');
     }
 
     const userProfile = await this.findUserPayloadByEmail(user.email);
@@ -347,6 +348,19 @@ export class AuthService {
 
   comparePassword(password: string, confirmPassword: string): boolean {
     return password === confirmPassword;
+  }
+
+  async refresh(token: string) {
+    const payload = this.jwtService.decode(token);
+    const boo = await this.redis.get(payload.id);
+    if (!token || !boo) {
+      throw new BadRequestException('재로그인 해주세요');
+    }
+    delete payload.iat;
+    delete payload.exp;
+    const accessToken = await this.createAccessToken(payload);
+    const refreshToken = await this.createRefreshToken(payload);
+    return { accessToken, refreshToken };
   }
 }
 
