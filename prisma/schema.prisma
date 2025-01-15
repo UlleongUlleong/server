@@ -62,6 +62,7 @@ model AlcoholCategory {
   createdAt DateTime @default(now())
 
   userAlcoholCategory UserAlcoholCategory[]
+  alcohol Alcohol[]
 }
 
 model UserMoodCategory {
@@ -82,4 +83,22 @@ model UserAlcoholCategory {
   alcoholCategory AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
 
   @@id([userId, alcoholCategoryId])
+}
+
+model Alcohol {
+  id Int @id @default(autoincrement())
+  alcoholCategoryId Int
+  name String? @db.VarChar(20)
+  description String? @db.VarChar(100)
+  price Int?
+  origin String? @db.VarChar(20)
+  ratingAverage Float @default(0)
+  reviewCount Int @default(0)
+  interestCount Int @default(0)
+  imageUrl String? @db.VarChar(255)
+  abv Float?
+  volume Int?
+  createdAt DateTime @default(now())
+
+  alcoholCategory AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
 }
