@@ -66,13 +66,8 @@ export class AuthService {
     if (!isPasswordMatch) {
       throw new UnauthorizedException('이메일 혹은 비밀번호가 다릅니다.');
     }
-    if (user.deletedAt === null) {
-      this.prisma.user.update({
-        where: { id: user.id },
-        data: { deletedAt: null },
-      });
-    }
 
+    await this.userService.restoreUser(user.id);
     const UserPayload = await this.findUserPayloadByEmail(email);
     const accessToken = await this.createAccessToken(UserPayload);
     const refreshToken = await this.createRefreshToken(UserPayload);
