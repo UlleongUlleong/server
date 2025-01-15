@@ -1,35 +1,72 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/common/modules/prisma.service';
+import { AlcoholQueryDto } from './dtos/Alcohol-query.dto';
 import { AlcoholDto } from './dtos/alcohol.dto';
 
 @Injectable()
 export class AlcoholService {
   constructor(private prisma: PrismaService) {}
 
-  async getAlcohol(): Promise<AlcoholDto> {
-    const start = 0;
+  async getAlcohols(query: AlcoholQueryDto): Promise<object> {
+    const { category, keyword, sort, offset, limit, cursor } = query;
+    const alcoholCategories = [
+      'total',
+      'soju',
+      'beer',
+      'whiskey',
+      'wine',
+      'makgeolli',
+    ];
+    let sortOptions = {};
+    if (sort) {
+      switch (sort) {
+        case 'star':
+          sortOptions = { ratingAverage: 'desc' };
+          break;
+        case 'review':
+          sortOptions = { reviewCount: 'desc' };
+          break;
+        case 'interest':
+          sortOptions = { interestCount: 'desc' };
+          break;
+        case 'createdAt':
+          sortOptions = { createdAt: 'desc' };
+          break;
+        default:
+          sortOptions = { name: 'desc' };
+      }
+    }
+
+    const finalOffset = cursor ? cursor : offset || 0;
     const alcoholInfo: AlcoholDto = {};
-    alcoholInfo.total = await this.findByRating(start, 0);
-    alcoholInfo.beer = await this.findByRating(start, 1);
-    alcoholInfo.beer = await this.findByRating(start, 2);
-    alcoholInfo.whiskey = await this.findByRating(start, 3);
-    alcoholInfo.wine = await this.findByRating(start, 4);
-    alcoholInfo.makgeolli = await this.findByRating(start, 5);
-    // const etc = await this.findByRating(start, 6);
-    console.log(alcoholInfo);
+    if (!category && !keyword && !finalOffset && !limit) {
+      alcoholInfo.total = await this.findAlcohol(undefined, sortOptions);
+      alcoholInfo.soju = await this.findAlcohol(1, sortOptions);
+      alcoholInfo.beer = await this.findAlcohol(2, sortOptions);
+      alcoholInfo.whiskey = await this.findAlcohol(3, sortOptions);
+      alcoholInfo.wine = await this.findAlcohol(4, sortOptions);
+      alcoholInfo.makgeolli = await this.findAlcohol(5, sortOptions);
+    } else if (category) {
+      alcoholInfo[alcoholCategories[category]] = await this.findAlcohol(
+        category,
+        sortOptions,
+      );
+    }
     return alcoholInfo;
   }
 
-  async findByRating(start, type) {
+  async findAlcohol(
+    category?: number,
+    sortOptions?: any,
+    finalOffset?: number,
+  ) {
     const alcohol = await this.prisma.alcohol.findMany({
-      skip: start ? start : 0,
+      skip: finalOffset ? finalOffset : 0,
       take: 5,
       where: {
-        alcoholCategoryId: type ? type : undefined,
+        alcoholCategoryId: category ? Number(category) : undefined,
       },
-      orderBy: {
-        ratingAverage: 'desc',
-      },
+      orderBy: sortOptions,
       select: {
         id: true,
         alcoholCategoryId: true,
@@ -45,5 +82,11 @@ export class AlcoholService {
       },
     });
     return alcohol;
+  }
+
+  async findAlcoholById(id: number) {
+    return await this.prisma.alcohol.findUnique({
+      where: { id },
+    });
   }
 }
