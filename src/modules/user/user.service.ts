@@ -55,7 +55,7 @@ export class UserService {
       throw new HttpException(
         {
           statusCode: HttpStatus.NOT_FOUND,
-          message: '인증 코드가 만료됐습니다.',
+          message: '사용자를 찾을 수 없습니다.',
         },
         HttpStatus.NOT_FOUND,
       );
@@ -136,9 +136,21 @@ export class UserService {
   }
 
   async findUserById(id: number): Promise<User> {
-    return await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id },
     });
+
+    if (!user) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: '사용자를 찾을 수 없습니다.',
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return user;
   }
 
   async checkNicknameDuplication(nicknameDto: NicknameDto): Promise<void> {
@@ -242,7 +254,8 @@ export class UserService {
   }
 
   async updateUserStatus(id: number): Promise<boolean> {
-    const { isActive } = await this.findUserById(id);
+    const user = await this.findUserById(id);
+    const { isActive } = user;
 
     await this.prisma.user.update({
       where: { id },
@@ -268,5 +281,19 @@ export class UserService {
     });
 
     await this.redis.del(redisKey);
+  }
+
+  async restoreUser(id: number): Promise<void> {
+    const user = await this.findUserById(id);
+    const { deletedAt } = user;
+
+    if (deletedAt === null) {
+      return;
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
   }
 }

@@ -24,7 +24,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     );
 
     if (!skipStatusCheck && !user.isActive) {
-      console.log(user);
       throw new ForbiddenException('비활성화된 사용자는 이용할 수 없습니다.');
     }
 
