@@ -62,13 +62,15 @@ export class AuthService {
     if (user.providerId !== 1) {
       throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
     }
-    if (user.deletedAt !== null) {
-      throw new UnauthorizedException('이메일 혹은 비밀번호가 다릅니다.');
-    }
-
     const isPasswordMatch = await this.isPasswordMatch(password, user.password);
     if (!isPasswordMatch) {
       throw new UnauthorizedException('이메일 혹은 비밀번호가 다릅니다.');
+    }
+    if (user.deletedAt === null) {
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { deletedAt: null },
+      });
     }
 
     const UserPayload = await this.findUserPayloadByEmail(email);
