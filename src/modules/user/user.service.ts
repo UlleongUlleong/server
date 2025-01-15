@@ -3,21 +3,29 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Prisma, Profile, User } from '@prisma/client';
-import { PrismaService } from '../../common/modules/prisma.service';
-import { EmailDto } from './dtos/email.dto';
+import { PrismaService } from '../../common/modules/prisma/prisma.service';
+import { EmailDto } from '../mail/dtos/email.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { NicknameDto } from './dtos/nickname.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { ProfileDetail } from './interfaces/profile.interface';
+import { MailService } from '../mail/mail.service';
+import Redis from 'ioredis';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject('REDIS_CLIENT') private redis: Redis,
+    private mailService: MailService,
+  ) {}
 
   async findProfileByNickname(nickname: string): Promise<Profile> {
     return await this.prisma.profile.findUnique({
@@ -127,6 +135,12 @@ export class UserService {
     });
   }
 
+  async findUserById(id: number): Promise<User> {
+    return await this.prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
   async checkNicknameDuplication(nicknameDto: NicknameDto): Promise<void> {
     const { nickname } = nicknameDto;
     const profile = await this.findProfileByNickname(nickname);
@@ -145,6 +159,11 @@ export class UserService {
       alcoholCategory = [],
       moodCategory = [],
     } = createUserDto;
+    const redisKey = `users:${email}:access_allowed`;
+    const isAllowed = await this.redis.get(redisKey);
+    if (!isAllowed || !Number(isAllowed)) {
+      throw new UnauthorizedException('인증 후에 회원가입을 진행해주세요.');
+    }
 
     if (!this.comparePassword(password, confirmPassword)) {
       throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
@@ -160,6 +179,8 @@ export class UserService {
       alcoholCategory,
       moodCategory,
     );
+
+    await this.redis.del(redisKey);
   }
 
   comparePassword(password: string, confirmPassword: string): boolean {
@@ -209,6 +230,7 @@ export class UserService {
 
         return {
           id: user.id,
+          isActive: user.isActive,
           provider: user.provider.name,
           nickname: user.profile.nickname,
           imageUrl: user.profile.imageUrl,
@@ -219,10 +241,32 @@ export class UserService {
     return createdUserWithProfile;
   }
 
-  async disableUser(id: number): Promise<void> {
+  async updateUserStatus(id: number): Promise<boolean> {
+    const { isActive } = await this.findUserById(id);
+
     await this.prisma.user.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: !isActive },
     });
+
+    return !isActive;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    const user = await this.findUserById(id);
+    const { email } = user;
+
+    const redisKey = `users:${email}:access_allowed`;
+    const isAllowed = await this.redis.get(redisKey);
+    if (!isAllowed || !Number(isAllowed)) {
+      throw new UnauthorizedException('인증 후에 탈퇴를 진행해주세요.');
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    await this.redis.del(redisKey);
   }
 }

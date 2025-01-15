@@ -9,12 +9,12 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { EmailDto } from '../user/dtos/email.dto';
+import { EmailDto } from '../mail/dtos/email.dto';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Request, Response } from 'express';
-import { VerifyCodeDto } from './dtos/verify-code.dto';
+import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 
 @Controller('auth')
@@ -43,29 +43,7 @@ export class AuthController {
     });
   }
 
-  @Post('activate')
-  async activateAccount(
-    @Body() loginDto: LocalLoginDto,
-    @Res() res: Response,
-  ): Promise<Response<null>> {
-    await this.authService.activateAccount(loginDto);
-    const { accessToken, refreshToken } =
-      await this.authService.login(loginDto);
-    res.header('Authorization', `Bearer ${accessToken}`);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      // sameSite: 'strict',
-    });
-
-    return res.status(200).json({
-      status: 'success',
-      data: null,
-      message: '계정이 활성화되었습니다.',
-    });
-  }
-
-  @Get('refresh-token')
+  @Post('refresh-token')
   async refreshToken(
     @Req() req: Request,
     @Res() res: Response,
@@ -80,7 +58,7 @@ export class AuthController {
       // sameSite: 'strict',
     });
 
-    return res.status(200).json({
+    return res.status(201).json({
       status: 'success',
       data: null,
       message: '토큰 재발급',

@@ -19,7 +19,7 @@ model User {
   id           Int      @id @unique @default(autoincrement())
   providerId   Int
   email        String   @unique @db.VarChar(255)
-  password     String   @db.VarChar(100)
+  password     String?   @db.VarChar(100)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
