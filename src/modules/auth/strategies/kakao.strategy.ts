@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-kakao';
 import { AuthService } from '../auth.service';
 import { OAuthUserDto } from '../dtos/oauth-user.dto';
-import { UserPayload } from '../interfaces/user-payload.interface';
+import { UserPayload } from '../../../common/interfaces/user-payload.interface';
 
 @Injectable()
 export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
@@ -39,6 +39,6 @@ export class KakaoStrategy extends PassportStrategy(Strategy, 'kakao') {
       nickname,
     };
 
-    return await this.authService.registerOAuthUser(oauthUser);
+    return await this.authService.createOAuthUser(oauthUser);
   }
 }

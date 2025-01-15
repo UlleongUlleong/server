@@ -6,21 +6,16 @@ import {
   Res,
   UseGuards,
   Req,
-  Headers,
-  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { EmailDto } from './dtos/email.dto';
-import { ApiResponse } from 'src/common/interfaces/api-response.interface';
-import { UserPayload } from './interfaces/user-payload.interface';
-import { CreateUserDto } from './dtos/create-user.dto';
+import { EmailDto } from '../mail/dtos/email.dto';
+import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
-import { Response } from 'express';
-import { UserInfo } from './interfaces/userInfo.inerface';
-import { VerifyCodeDto } from './dtos/verify-code.dto';
-import { OAuthRequest } from './interfaces/oauth-request.interface';
-import { NicknameDto } from './dtos/nickname.dto';
+import { Request, Response } from 'express';
+import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
+import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -30,48 +25,42 @@ export class AuthController {
   async login(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
-  ): Promise<Response<UserInfo>> {
-    const {
-      accessToken,
-      userInfo,
-    }: { accessToken: string; userInfo: UserInfo } =
+  ): Promise<Response<null>> {
+    const { accessToken, refreshToken } =
       await this.authService.login(loginDto);
+
     res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
+    });
+
     return res.status(200).json({
       status: 'success',
-      data: userInfo,
+      data: null,
       message: '로그인 성공',
     });
   }
 
-  @Post('activate')
-  async activateAccount(
-    @Body() loginDto: LocalLoginDto,
+  @Post('refresh-token')
+  async refreshToken(
+    @Req() req: Request,
     @Res() res: Response,
-  ): Promise<Response<UserInfo>> {
-    await this.authService.activateAccount(loginDto);
-    const {
-      accessToken,
-      userInfo,
-    }: { accessToken: string; userInfo: UserInfo } =
-      await this.authService.login(loginDto);
+  ): Promise<Response<null>> {
+    const token = req.cookies['refresh_token'];
+    const { accessToken, refreshToken } =
+      await this.authService.refreshToken(token);
     res.header('Authorization', `Bearer ${accessToken}`);
-    return res.status(200).json({
-      status: 'success',
-      data: userInfo,
-      message: '계정 활성화 성공',
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      // sameSite: 'strict',
     });
-  }
 
-  @Get('refresh')
-  async refresh(@Headers() headers, @Res() res): Promise<ApiResponse<string>> {
-    let token = headers['authorization'];
-    token = token.replace('Bearer ', '');
-    const { accessToken, refreshToken } = await this.authService.refresh(token);
-    res.header('Authorization', `Bearer ${accessToken}`);
-    return res.status(200).json({
+    return res.status(201).json({
       status: 'success',
-      data: refreshToken,
+      data: null,
       message: '토큰 재발급',
     });
   }
@@ -80,10 +69,10 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   async googleLogin(): Promise<void> {}
 
-  @Get('/google/callback')
+  @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleLoginCallback(
-    @Req() req: OAuthRequest,
+    @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
     const user: UserPayload = req.user;
@@ -100,14 +89,14 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Get('/naver')
+  @Get('naver')
   @UseGuards(AuthGuard('naver'))
   async naverLogin(): Promise<void> {}
 
-  @Get('/naver/callback')
+  @Get('naver/callback')
   @UseGuards(AuthGuard('naver'))
   async naverLoginCallback(
-    @Req() req: OAuthRequest,
+    @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
     const user: UserPayload = req.user;
@@ -124,14 +113,14 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Get('/kakao')
+  @Get('kakao')
   @UseGuards(AuthGuard('kakao'))
   async kakaoLogin(): Promise<void> {}
 
-  @Get('/kakao/callback')
+  @Get('kakao/callback')
   @UseGuards(AuthGuard('kakao'))
   async kakaoLoginCallback(
-    @Req() req: OAuthRequest,
+    @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
     const user: UserPayload = req.user;
@@ -148,46 +137,7 @@ export class AuthController {
     return res.redirect(process.env.FRONT_URL);
   }
 
-  @Post('/accounts')
-  async createUser(
-    @Body() createUserDto: CreateUserDto,
-  ): Promise<ApiResponse<null>> {
-    await this.authService.registerEmailUser(createUserDto);
-
-    return {
-      status: 'success',
-      data: null,
-      message: '회원가입이 완료되었습니다.',
-    };
-  }
-
-  @Get('/accounts/email')
-  async checkEmailExists(
-    @Query() emailDto: EmailDto,
-  ): Promise<ApiResponse<null>> {
-    await this.authService.checkEmailDuplication(emailDto);
-
-    return {
-      status: 'success',
-      data: null,
-      message: '사용가능한 이메일입니다.',
-    };
-  }
-
-  @Get('/accounts/nickname')
-  async checkNicknameExists(
-    @Query() nicknameDto: NicknameDto,
-  ): Promise<ApiResponse<null>> {
-    await this.authService.checkNicknameDuplication(nicknameDto);
-
-    return {
-      status: 'success',
-      data: null,
-      message: '사용가능한 닉네임입니다.',
-    };
-  }
-
-  @Post('/email-codes')
+  @Post('email-codes')
   async sendEmailCode(@Body() emailDto: EmailDto): Promise<ApiResponse<null>> {
     await this.authService.sendEmailCode(emailDto);
 
@@ -198,7 +148,7 @@ export class AuthController {
     };
   }
 
-  @Post('/email-codes/verification')
+  @Post('email-codes/verification')
   async verifyEmailCode(
     @Body() verifyCodeDto: VerifyCodeDto,
   ): Promise<ApiResponse<null>> {

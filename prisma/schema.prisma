@@ -19,14 +19,14 @@ model User {
   id           Int      @id @unique @default(autoincrement())
   providerId   Int
   email        String   @unique @db.VarChar(255)
-  password     String   @db.VarChar(100)
+  password     String?   @db.VarChar(100)
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   deletedAt    DateTime?
 
   provider     Provider @relation(fields: [providerId], references: [id])
   profile      Profile?
-  token        Token?
   userMoodCategory UserMoodCategory[]
   userAlcoholCategory UserAlcoholCategory[]
 }
@@ -37,15 +37,7 @@ model Profile {
   imageUrl  String? @db.VarChar(255)
   createdAt DateTime @default(now())
 
-  user      User   @relation(fields: [userId], references: [id])
-}
-
-model Token {
-  userId     Int      @id
-  refreshToken String @db.VarChar(255)
-  expiresAt  Int
-
-  user       User    @relation(fields: [userId], references: [id])
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model MoodCategory {
@@ -68,7 +60,7 @@ model UserMoodCategory {
   userId Int
   moodCategoryId Int
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   moodCategory MoodCategory @relation(fields: [moodCategoryId], references: [id])
 
   @@id([userId, moodCategoryId])
@@ -78,7 +70,7 @@ model UserAlcoholCategory {
   userId Int
   alcoholCategoryId Int
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   alcoholCategory AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
 
   @@id([userId, alcoholCategoryId])
