@@ -29,6 +29,8 @@ model User {
   profile      Profile?
   userMoodCategory UserMoodCategory[]
   userAlcoholCategory UserAlcoholCategory[]
+  userReviewAlochol UserReviewAlochol[]
+  userInterestAlcohol UserInterestAlcohol[]
 }
 
 model Profile {
@@ -54,6 +56,8 @@ model AlcoholCategory {
   createdAt DateTime @default(now())
 
   userAlcoholCategory UserAlcoholCategory[]
+  alcohol Alcohol[]
+  
 }
 
 model UserMoodCategory {
@@ -74,4 +78,46 @@ model UserAlcoholCategory {
   alcoholCategory AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
 
   @@id([userId, alcoholCategoryId])
+}
+
+model Alcohol {
+  id Int @id @default(autoincrement())
+  alcoholCategoryId Int
+  name String? @db.VarChar(20)
+  description String? @db.VarChar(100)
+  price Int?
+  origin String? @db.VarChar(20)
+  scoreAverage Float @default(0)
+  scoreCount Int @default(0)
+  reviewCount Int @default(0)
+  interestCount Int @default(0)
+  imageUrl String? @db.VarChar(255)
+  abv Float?
+  volume Int?
+  createdAt DateTime @default(now())
+
+  alcoholCategory AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
+  userReviewAlochol UserReviewAlochol[]
+  userInterestAlcohol UserInterestAlcohol[]
+}
+
+model UserReviewAlochol {
+  id Int @id @default(autoincrement())
+  score Int
+  comment String @db.VarChar(50)
+  createdAt DateTime @default(now())
+  userId Int
+  alcoholId Int
+
+  user User @relation(fields: [userId], references: [id])
+  alcohol Alcohol @relation(fields: [alcoholId], references: [id])
+}
+
+model UserInterestAlcohol {
+  userId Int
+  alcoholId Int
+
+  @@id([userId, alcoholId])
+  user User @relation(fields: [userId], references: [id])
+  alcohol Alcohol @relation(fields: [alcoholId], references: [id])
 }
