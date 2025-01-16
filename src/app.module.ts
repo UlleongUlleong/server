@@ -6,12 +6,14 @@ import { RedisModule } from './common/modules/redis/redis.module';
 import { CategoryModule } from './modules/category/category.module';
 import { PrismaModule } from './common/modules/prisma/prisma.module';
 import { MailModule } from './modules/mail/mail.module';
+import { ChatModule } from './modules/chat/chat.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
     AuthModule,
     UserModule,
     MailModule,
+    ChatModule,
     PrismaModule,
     RedisModule,
     CategoryModule,

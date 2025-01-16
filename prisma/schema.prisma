@@ -29,7 +29,7 @@ model User {
   profile      Profile?
   userMoodCategory    UserMoodCategory[]
   userAlcoholCategory UserAlcoholCategory[]
-  chatParticipant     ChatParticipant?
+  room                ChatParticipant?
 }
 
 model Profile {
@@ -47,6 +47,7 @@ model MoodCategory {
   createdAt DateTime @default(now())
 
   userMoodCategory UserMoodCategory[]
+  chat ChatMoodCategory[]
 }
 
 model AlcoholCategory {
@@ -55,6 +56,7 @@ model AlcoholCategory {
   createdAt DateTime @default(now())
 
   userAlcoholCategory UserAlcoholCategory[]
+  chat ChatAlcoholCategory[]
 }
 
 model UserMoodCategory {
@@ -89,19 +91,39 @@ model ChatRoom {
   themeId         Int
   theme           ChatRoomTheme @relation(fields: [themeId], references: [id])
   name            String        @db.VarChar(50)
-  description     String        @db.VarChar(200)
-  maxParticipant  Int
+  description     String?       @db.VarChar(200)
+  maxParticipants Int
   createdAt       DateTime      @default(now())
   deletedAt       DateTime?
 
-  chatParticipant ChatParticipant[]
+  participants        ChatParticipant[]
+  alcoholCategory     ChatAlcoholCategory[]
+  moodCategory        ChatMoodCategory[]
 }
 
 model ChatParticipant {
-  userId    Int       @id @unique
-  user      User      @relation(fields: [userId], references: [id])
+  userId    Int         @id @unique
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   roomId    Int
-  chatRoom  ChatRoom  @relation(fields: [roomId], references: [id])
-  joinedAt  DateTime  @default(now())
-  isHost    Boolean
+  chatRoom  ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime    @default(now())
+  isHost    Boolean     @default(false)
+}
+
+model ChatAlcoholCategory {
+  roomId            Int
+  chatRoom          ChatRoom        @relation(fields: [roomId], references: [id])
+  alcoholCategoryId Int
+  alcoholCategory   AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
+
+  @@id([roomId, alcoholCategoryId])
+}
+
+model ChatMoodCategory {
+  roomId            Int
+  chatRoom          ChatRoom        @relation(fields: [roomId], references: [id])
+  moodCategoryId    Int
+  moodCategory      MoodCategory    @relation(fields: [moodCategoryId], references: [id])
+
+  @@id([roomId, moodCategoryId])
 }

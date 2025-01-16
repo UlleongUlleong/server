@@ -12,7 +12,6 @@ import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-import { PrismaService } from 'src/common/modules/prisma/prisma.service';
 import { JwtToken } from './interfaces/jwt-token.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
@@ -25,7 +24,6 @@ import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 export class AuthService {
   constructor(
     @Inject('REDIS_CLIENT') private redis: Redis,
-    private prisma: PrismaService,
     private jwtService: JwtService,
     private mailService: MailService,
     private userService: UserService,

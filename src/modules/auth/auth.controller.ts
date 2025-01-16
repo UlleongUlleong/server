@@ -11,7 +11,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
-import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Request, Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
