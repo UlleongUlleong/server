@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/common/modules/prisma/prisma.service';
 
 @Injectable()
@@ -17,5 +17,27 @@ export class CategoryService {
       select: { id: true, name: true },
     });
     return moodCategory;
+  }
+
+  async checkAlocoholIdsExist(ids: number[]): Promise<void> {
+    const count = await this.prisma.alcoholCategory.count({
+      where: { id: { in: ids } },
+    });
+
+    if (count !== ids.length) {
+      throw new BadRequestException('술 카테고리의 값이 유효하지 않습니다.');
+    }
+  }
+
+  async checkMoodIdsExist(ids: number[]): Promise<void> {
+    const count = await this.prisma.moodCategory.count({
+      where: { id: { in: ids } },
+    });
+
+    if (count !== ids.length) {
+      throw new BadRequestException(
+        '분위기 카테고리의 값이 유효하지 않습니다.',
+      );
+    }
   }
 }

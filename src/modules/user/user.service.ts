@@ -7,24 +7,24 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
 import { Prisma, Profile, User } from '@prisma/client';
-import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { EmailDto } from '../mail/dtos/email.dto';
-import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { NicknameDto } from './dtos/nickname.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
-import { UserPayload } from '../../common/interfaces/user-payload.interface';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { ProfileDetail } from './interfaces/profile.interface';
-import { MailService } from '../mail/mail.service';
-import Redis from 'ioredis';
+import { UserPayload } from '../../common/interfaces/user-payload.interface';
+import { CategoryService } from '../category/category.service';
+import { PrismaService } from '../../common/modules/prisma/prisma.service';
 
 @Injectable()
 export class UserService {
   constructor(
-    private prisma: PrismaService,
     @Inject('REDIS_CLIENT') private redis: Redis,
-    private mailService: MailService,
+    private prisma: PrismaService,
+    private categoryService: CategoryService,
   ) {}
 
   async findProfileByNickname(nickname: string): Promise<Profile> {
@@ -89,6 +89,9 @@ export class UserService {
       alcoholCategory = [],
       moodCategory = [],
     } = updateProfileDto;
+
+    await this.categoryService.checkAlocoholIdsExist(alcoholCategory);
+    await this.categoryService.checkMoodIdsExist(moodCategory);
 
     await this.prisma.$transaction(async (tx) => {
       if (nickname) {
@@ -207,6 +210,9 @@ export class UserService {
     alcoholCategory: number[],
     moodCategory: number[],
   ): Promise<UserPayload> {
+    await this.categoryService.checkAlocoholIdsExist(alcoholCategory);
+    await this.categoryService.checkMoodIdsExist(moodCategory);
+
     const newUser: Prisma.UserCreateInput = {
       email,
       password,
