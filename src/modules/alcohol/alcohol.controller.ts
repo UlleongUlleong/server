@@ -1,7 +1,21 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiResponse } from 'src/common/interfaces/api-response.interface';
+import {
+  Post,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { AlcoholService } from './alcohol.service';
 import { AlcoholQueryDto } from './dtos/alcohol-query.dto';
+import { CreateReviewDto } from './dtos/create-review.dto';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { ApiResponse } from 'src/common/interfaces/api-response.interface';
+import { AlcoholDto } from './dtos/alcohol.dto';
+import { ReviewDto } from './dtos/review.dto';
 
 @Controller('alcohol')
 export class AlcoholController {
@@ -10,8 +24,7 @@ export class AlcoholController {
   @Get()
   async findAlcohols(
     @Query() query: AlcoholQueryDto,
-  ): Promise<ApiResponse<object>> {
-    console.log(query);
+  ): Promise<ApiResponse<AlcoholDto[]>> {
     const info = await this.alcoholService.getAlcohols(query);
     return {
       status: 'success',
@@ -21,13 +34,58 @@ export class AlcoholController {
   }
 
   @Get(':id')
-  async findOneAlcohol(@Param('id') id: number): Promise<ApiResponse<object>> {
-    console.log(id);
-    const info = await this.alcoholService.findAlcoholById(Number(id));
+  async findOneAlcohol(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('cursor') cursor?: number,
+  ): Promise<
+    ApiResponse<{ alcoholInfo: AlcoholDto; reviewInfo: ReviewDto[] }>
+  > {
+    const { alcoholInfo, reviewInfo } =
+      await this.alcoholService.getAlcoholDetail(id, cursor);
     return {
       status: 'success',
-      data: info,
+      data: { alcoholInfo, reviewInfo },
       message: '특정 술 조회',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/reviews')
+  async createReview(
+    @Req() req,
+    @Param('id', ParseIntPipe) alcoholId: number,
+    @Body() reviewInfo: CreateReviewDto,
+  ): Promise<ApiResponse<{ alcohol: AlcoholDto; reviews: ReviewDto[] }>> {
+    const { userId } = req.user;
+    const { alcohol, reviews } = await this.alcoholService.createReview(
+      userId,
+      alcoholId,
+      reviewInfo,
+    );
+    return {
+      status: 'success',
+      data: { alcohol, reviews },
+      message: '리뷰 작성완료',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/mark')
+  async markStatus(
+    @Req() req,
+    @Param('id', ParseIntPipe) alcoholId: number,
+  ): Promise<ApiResponse<object>> {
+    const { userId }: { userId: number } = req.user;
+    const isBookmarked = await this.alcoholService.markStatus(
+      userId,
+      alcoholId,
+    );
+    return {
+      status: 'success',
+      data: null,
+      message: isBookmarked
+        ? '북마크가 추가되었습니다'
+        : '북마크가 취소되었습니다',
     };
   }
 }
