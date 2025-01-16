@@ -75,9 +75,9 @@ export class AuthController {
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user: UserPayload = req.user;
-    const accessToken = await this.authService.createAccessToken(user);
-    const refreshToken = await this.authService.createRefreshToken(user);
+    const id: number = req.user.sub;
+    const accessToken = await this.authService.createAccessToken(id);
+    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
     res.cookie('refresh_token', refreshToken, {
@@ -99,9 +99,9 @@ export class AuthController {
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user: UserPayload = req.user;
-    const accessToken = await this.authService.createAccessToken(user);
-    const refreshToken = await this.authService.createRefreshToken(user);
+    const id: number = req.user.sub;
+    const accessToken = await this.authService.createAccessToken(id);
+    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
     res.cookie('refresh_token', refreshToken, {
@@ -123,9 +123,9 @@ export class AuthController {
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user: UserPayload = req.user;
-    const accessToken = await this.authService.createAccessToken(user);
-    const refreshToken = await this.authService.createRefreshToken(user);
+    const id: number = req.user.sub;
+    const accessToken = await this.authService.createAccessToken(id);
+    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
     res.cookie('refresh_token', refreshToken, {

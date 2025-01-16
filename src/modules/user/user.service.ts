@@ -61,8 +61,6 @@ export class UserService {
       );
     }
 
-    console.log(user);
-
     return {
       nickname: user.profile.nickname,
       moodCategory: user.userMoodCategory?.map((value) => ({
@@ -236,27 +234,13 @@ export class UserService {
       },
     };
 
-    const createdUserWithProfile = await this.prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.create({
-          data: newUser,
-          include: {
-            provider: true,
-            profile: true,
-          },
-        });
+    const user = await this.prisma.user.create({
+      data: newUser,
+    });
 
-        return {
-          id: user.id,
-          isActive: user.isActive,
-          provider: user.provider.name,
-          nickname: user.profile.nickname,
-          imageUrl: user.profile.imageUrl,
-        };
-      },
-    );
-
-    return createdUserWithProfile;
+    return {
+      sub: user.id,
+    };
   }
 
   async updateUserStatus(id: number): Promise<boolean> {

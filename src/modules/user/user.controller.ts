@@ -31,7 +31,7 @@ export class UserController {
   async getUserProfile(
     @Req() req: AuthenticateRequest,
   ): Promise<ApiResponse<ProfileDetail>> {
-    const { id } = req.user;
+    const id: number = req.user.sub;
     const profile = await this.userService.findProfileWithRelation(id);
     return {
       status: 'success',
@@ -46,7 +46,7 @@ export class UserController {
     @Req() req: AuthenticateRequest,
     @Body() updateProfileDto: UpdateProfileDto,
   ): Promise<ApiResponse<null>> {
-    const { id } = req.user;
+    const id: number = req.user.sub;
     await this.userService.updateUserProfile(id, updateProfileDto);
 
     return {
@@ -101,7 +101,7 @@ export class UserController {
   async disableUser(
     @Req() req: AuthenticateRequest,
   ): Promise<ApiResponse<null>> {
-    const { id } = req.user;
+    const id: number = req.user.sub;
     const isActive = await this.userService.updateUserStatus(id);
 
     return {
@@ -118,7 +118,7 @@ export class UserController {
   async deleteUser(
     @Req() req: AuthenticateRequest,
   ): Promise<ApiResponse<null>> {
-    const { id } = req.user;
+    const id: number = req.user.sub;
     await this.userService.deleteUser(id);
 
     return {

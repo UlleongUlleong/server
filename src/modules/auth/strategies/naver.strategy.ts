@@ -33,7 +33,9 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
     const user: User = await this.userService.findUserByEmail(email);
     if (user) {
       await this.userService.restoreUser(user.id);
-      return this.authService.findUserPayloadById(user.id);
+      return {
+        sub: user.id,
+      };
     }
 
     const oauthUser: OAuthUserDto = {
