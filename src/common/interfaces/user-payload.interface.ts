@@ -3,4 +3,7 @@ export interface UserPayload {
   nickname: string;
   imageUrl: string;
   provider: string;
+  isActive: boolean;
+  iat?: number;
+  exp?: number;
 }

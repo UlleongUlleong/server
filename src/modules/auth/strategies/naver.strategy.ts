@@ -3,11 +3,16 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-naver';
 import { AuthService } from '../auth.service';
 import { OAuthUserDto } from '../dtos/oauth-user.dto';
-import { UserPayload } from '../interfaces/user-payload.interface';
+import { UserPayload } from '../../../common/interfaces/user-payload.interface';
+import { UserService } from 'src/modules/user/user.service';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
-  constructor(private authService: AuthService) {
+  private authService: AuthService;
+  private userService: UserService;
+
+  constructor() {
     super({
       clientID: process.env.OAUTH_NAVER_ID,
       clientSecret: process.env.OAUTH_NAVER_SECRET,
@@ -25,10 +30,10 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
     const provider: string = profile.provider;
     const nickname: string = await this.authService.generateRandomNickname();
 
-    const user: UserPayload =
-      await this.authService.findUserPayloadByEmail(email);
+    const user: User = await this.userService.findUserByEmail(email);
     if (user) {
-      return user;
+      await this.userService.restoreUser(user.id);
+      return this.authService.findUserPayloadById(user.id);
     }
 
     const oauthUser: OAuthUserDto = {
@@ -38,6 +43,6 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
       nickname,
     };
 
-    return await this.authService.registerOAuthUser(oauthUser);
+    return await this.authService.createOAuthUser(oauthUser);
   }
 }
