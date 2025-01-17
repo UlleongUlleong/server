@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  OnApplicationShutdown,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/common/modules/prisma/prisma.service';
@@ -13,10 +14,9 @@ import { UserPayload } from 'src/common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { UserService } from '../user/user.service';
-import { validate } from 'class-validator';
 
 @Injectable()
-export class ChatService {
+export class ChatService implements OnApplicationShutdown {
   constructor(
     @Inject('REDIS_CLIENT') private redis: Redis,
     private prisma: PrismaService,
@@ -25,6 +25,11 @@ export class ChatService {
     private jwtService: JwtService,
     private userService: UserService,
   ) {}
+
+  async onApplicationShutdown(signal?: string) {
+    console.log(`애플리케이션이 종료되었습니다.: ${signal}`);
+    await this.deleteAllConnections();
+  }
 
   async validateToken(token: string): Promise<UserPayload> {
     const payload: UserPayload = await this.jwtService.verify(token);
@@ -40,23 +45,24 @@ export class ChatService {
     return payload;
   }
 
-  async validateDto(dto: object) {
-    const errors = await validate(dto);
-    console.log(errors);
-    if (errors.length > 0) {
-      throw new Error(errors.toString());
-    }
-    console.log('no problem');
+  async createConnection(clientId: string, userId: number): Promise<void> {
+    const key = 'chat:users';
+    await this.redis.hset(key, clientId, userId);
   }
 
-  async createConnection(clientId: string, userId: number): Promise<void> {
-    const key = `chat:users:${clientId}`;
-    await this.redis.set(key, userId);
+  async deleteConnection(clientId: string): Promise<void> {
+    const key = 'chat:users';
+    await this.redis.hdel(key, clientId);
+  }
+
+  async deleteAllConnections(): Promise<void> {
+    const key = 'chat:users';
+    await this.redis.del(key);
   }
 
   async findUserByClientId(clientId: string): Promise<number> {
-    const key = `chat:users:${clientId}`;
-    const userId = await this.redis.get(key);
+    const key = 'chat:users';
+    const userId = await this.redis.hget(key, clientId);
     if (!userId) {
       throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
     }
@@ -101,5 +107,55 @@ export class ChatService {
     });
 
     return room.id;
+  }
+
+  async deleteChatRoom(roomId: number): Promise<void> {
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      return;
+    }
+
+    await this.prisma.chatRoom.delete({
+      where: { id: room.id },
+    });
+  }
+
+  async deleteParticipant(userId: number): Promise<number> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
+    });
+
+    if (!participant) {
+      return 0;
+    }
+
+    const roomId = participant.roomId;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.chatParticipant.delete({
+        where: { userId },
+      });
+
+      let newHost;
+      if (participant.isHost) {
+        newHost = await tx.chatParticipant.findFirst({
+          where: { roomId },
+          orderBy: { joinedAt: 'asc' },
+        });
+
+        if (!newHost) {
+          return this.deleteChatRoom(participant.roomId);
+        }
+
+        await tx.chatParticipant.update({
+          where: { userId: newHost.userId },
+          data: { isHost: true },
+        });
+      }
+    });
+
+    return roomId;
   }
 }

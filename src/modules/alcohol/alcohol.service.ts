@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/common/modules/prisma.service';
+import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { AlcoholQueryDto } from './dtos/Alcohol-query.dto';
 import { AlcoholDto } from './dtos/alcohol.dto';
 import { CreateReviewDto } from './dtos/create-review.dto';
