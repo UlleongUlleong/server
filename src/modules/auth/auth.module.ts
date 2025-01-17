@@ -7,8 +7,8 @@ import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { NaverStrategy } from './strategies/naver.strategy';
 import { KakaoStrategy } from './strategies/kakao.strategy';
-import { UserService } from '../user/user.service';
 import { MailModule } from '../mail/mail.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -18,6 +18,7 @@ import { MailModule } from '../mail/mail.module';
       signOptions: { expiresIn: '1h' },
     }),
     MailModule,
+    UserModule,
   ],
   providers: [
     AuthService,
@@ -25,7 +26,6 @@ import { MailModule } from '../mail/mail.module';
     NaverStrategy,
     KakaoStrategy,
     JwtStrategy,
-    UserService,
   ],
   controllers: [AuthController],
 })

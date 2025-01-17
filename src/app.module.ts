@@ -8,12 +8,14 @@ import { AlcoholModule } from './modules/alcohol/alcohol.module';
 import { PrismaModule } from './common/modules/prisma/prisma.module';
 import { MailModule } from './modules/mail/mail.module';
 
+import { ChatModule } from './modules/chat/chat.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
     AuthModule,
     UserModule,
     MailModule,
+    ChatModule,
     PrismaModule,
     RedisModule,
     CategoryModule,

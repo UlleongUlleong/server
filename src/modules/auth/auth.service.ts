@@ -12,7 +12,6 @@ import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-import { PrismaService } from 'src/common/modules/prisma/prisma.service';
 import { JwtToken } from './interfaces/jwt-token.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
@@ -25,7 +24,6 @@ import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 export class AuthService {
   constructor(
     @Inject('REDIS_CLIENT') private redis: Redis,
-    private prisma: PrismaService,
     private jwtService: JwtService,
     private mailService: MailService,
     private userService: UserService,
@@ -38,14 +36,14 @@ export class AuthService {
     return await bcrypt.compare(password, hashPassword);
   }
 
-  async createAccessToken(user: UserPayload): Promise<string> {
-    return this.jwtService.sign(user, { expiresIn: '1h' });
+  async createAccessToken(id: number): Promise<string> {
+    return this.jwtService.sign({ sub: id }, { expiresIn: '1h' });
   }
 
-  async createRefreshToken(user: UserPayload): Promise<string> {
-    const refreshToken = this.jwtService.sign(user, { expiresIn: '7d' });
+  async createRefreshToken(id: number): Promise<string> {
+    const refreshToken = this.jwtService.sign({ sub: id }, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
-    const key = `users:${user.id}:refresh_token`;
+    const key = `refresh_token:users:${id}`;
 
     await this.redis.set(key, refreshToken);
     await this.redis.expireat(key, exp);
@@ -68,51 +66,10 @@ export class AuthService {
     }
 
     await this.userService.restoreUser(user.id);
-    const UserPayload = await this.findUserPayloadByEmail(email);
-    const accessToken = await this.createAccessToken(UserPayload);
-    const refreshToken = await this.createRefreshToken(UserPayload);
+    const accessToken = await this.createAccessToken(user.id);
+    const refreshToken = await this.createRefreshToken(user.id);
 
     return { accessToken, refreshToken };
-  }
-
-  async findUserPayloadByEmail(email: string): Promise<UserPayload> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: {
-        profile: true,
-        provider: true,
-      },
-    });
-
-    return user
-      ? {
-          id: user.id,
-          isActive: user.isActive,
-          nickname: user.profile.nickname,
-          imageUrl: user.profile.imageUrl,
-          provider: user.provider.name,
-        }
-      : null;
-  }
-
-  async findUserPayloadById(id: number): Promise<UserPayload> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        profile: true,
-        provider: true,
-      },
-    });
-
-    return user
-      ? {
-          id: user.id,
-          isActive: user.isActive,
-          nickname: user.profile.nickname,
-          imageUrl: user.profile.imageUrl,
-          provider: user.provider.name,
-        }
-      : null;
   }
 
   async createOAuthUser(oauthUserDto: OAuthUserDto): Promise<UserPayload> {
@@ -161,10 +118,9 @@ export class AuthService {
       throw new UnauthorizedException('유효하지 않은 토큰입니다.');
     }
 
-    const payload: UserPayload = this.jwtService.decode(token);
-    const storedToken = await this.redis.get(
-      `users:${payload.id}:refresh_token`,
-    );
+    const payload: UserPayload = this.jwtService.verify(token);
+    const id = payload.sub;
+    const storedToken = await this.redis.get(`refresh_token:users:${id}`);
     if (!storedToken) {
       throw new BadRequestException('토큰이 만료되었습니다.');
     }
@@ -172,9 +128,8 @@ export class AuthService {
       throw new UnauthorizedException('토큰이 일치하지 않습니다.');
     }
 
-    const newPayload = await this.findUserPayloadById(payload.id);
-    const accessToken = await this.createAccessToken(newPayload);
-    const refreshToken = await this.createRefreshToken(newPayload);
+    const accessToken = await this.createAccessToken(id);
+    const refreshToken = await this.createRefreshToken(id);
     return { accessToken, refreshToken };
   }
 
@@ -186,5 +141,11 @@ export class AuthService {
   async verifyEmailCode(verifyCodeDto: VerifyCodeDto) {
     const { email, code } = verifyCodeDto;
     await this.mailService.verifyCode(email, code);
+  }
+
+  async validateJwt(token: string): Promise<UserPayload> {
+    const payload: UserPayload = await this.jwtService.verifyAsync(token);
+
+    return payload;
   }
 }

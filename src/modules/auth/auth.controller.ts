@@ -11,7 +11,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
-import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Request, Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
@@ -75,9 +74,9 @@ export class AuthController {
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user: UserPayload = req.user;
-    const accessToken = await this.authService.createAccessToken(user);
-    const refreshToken = await this.authService.createRefreshToken(user);
+    const id: number = req.user.sub;
+    const accessToken = await this.authService.createAccessToken(id);
+    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
     res.cookie('refresh_token', refreshToken, {
@@ -99,9 +98,9 @@ export class AuthController {
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user: UserPayload = req.user;
-    const accessToken = await this.authService.createAccessToken(user);
-    const refreshToken = await this.authService.createRefreshToken(user);
+    const id: number = req.user.sub;
+    const accessToken = await this.authService.createAccessToken(id);
+    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
     res.cookie('refresh_token', refreshToken, {
@@ -123,9 +122,9 @@ export class AuthController {
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user: UserPayload = req.user;
-    const accessToken = await this.authService.createAccessToken(user);
-    const refreshToken = await this.authService.createRefreshToken(user);
+    const id: number = req.user.sub;
+    const accessToken = await this.authService.createAccessToken(id);
+    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
     res.cookie('refresh_token', refreshToken, {
