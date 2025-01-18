@@ -26,13 +26,19 @@ export class ChatGateway {
       const userId = payload.sub;
       await this.chatService.createConnection(clientId, userId);
     } catch {
-      client.emit('error', { message: '웹소켓 연결에 실패했습니다.' });
       client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket) {
-    console.log(`${client.id} is diconnected.`);
+  async handleDisconnect(client: Socket) {
+    try {
+      const clientId = client.id;
+
+      await this.handleLeaveRoom(client);
+      await this.chatService.deleteConnection(clientId);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   @SubscribeMessage('create_room')
@@ -55,7 +61,37 @@ export class ChatGateway {
       };
     } catch (error) {
       console.log(error);
-      client.emit('error', { message: '채팅방 생성에 실패했습니다.' });
+      return {
+        event: 'error',
+        data: { error: '채팅방 생성에 실패했습니다.' },
+      };
+    }
+  }
+
+  @SubscribeMessage('leave_room')
+  async handleLeaveRoom(@ConnectedSocket() client: Socket) {
+    try {
+      const clientId = client.id;
+      const userId = await this.chatService.findUserByClientId(clientId);
+      const roomId = await this.chatService.deleteParticipant(userId);
+
+      if (!roomId) {
+        client.leave(roomId.toString());
+        this.server.to(roomId.toString()).emit('user_left', { userId });
+      }
+
+      return {
+        event: 'room_leaved',
+        data: {
+          message: '채팅방을 떠났습니다.',
+        },
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        event: 'error',
+        data: { error: '채팅방 퇴장에 실패했습니다.' },
+      };
     }
   }
 }

@@ -16,6 +16,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { ApiResponse } from 'src/common/interfaces/api-response.interface';
 import { AlcoholDto } from './dtos/alcohol.dto';
 import { ReviewDto } from './dtos/review.dto';
+import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
 
 @Controller('alcohol')
 export class AlcoholController {
@@ -52,11 +53,11 @@ export class AlcoholController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/reviews')
   async createReview(
-    @Req() req,
+    @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
     @Body() reviewInfo: CreateReviewDto,
   ): Promise<ApiResponse<{ alcohol: AlcoholDto; reviews: ReviewDto[] }>> {
-    const { userId } = req.user;
+    const userId: number = req.user.sub;
     const { alcohol, reviews } = await this.alcoholService.createReview(
       userId,
       alcoholId,
@@ -72,10 +73,10 @@ export class AlcoholController {
   @UseGuards(JwtAuthGuard)
   @Get(':id/mark')
   async markStatus(
-    @Req() req,
+    @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
   ): Promise<ApiResponse<object>> {
-    const { userId }: { userId: number } = req.user;
+    const userId: number = req.user.sub;
     const isBookmarked = await this.alcoholService.markStatus(
       userId,
       alcoholId,
