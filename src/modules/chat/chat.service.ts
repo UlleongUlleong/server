@@ -1,7 +1,9 @@
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
+  NotFoundException,
   OnApplicationShutdown,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -75,6 +77,7 @@ export class ChatService implements OnApplicationShutdown {
     await this.categoryService.checkAlocoholIdsExist(alcoholCategory);
     await this.categoryService.checkMoodIdsExist(moodCategory);
     await this.themeService.checkThemeIdExist(themeId);
+    await this.checkParticipantDuplication(userId);
 
     const { name, description, maxParticipants } = data;
     const newRoom: Prisma.ChatRoomCreateInput = {
@@ -109,17 +112,21 @@ export class ChatService implements OnApplicationShutdown {
     return room.id;
   }
 
-  async deleteChatRoom(roomId: number): Promise<void> {
-    const room = await this.prisma.chatRoom.findUnique({
-      where: { id: roomId },
-    });
+  async createParticipant(userId: number, roomId: number): Promise<void> {
+    await this.checkParticipantDuplication(userId);
+    await this.checkRoomIdExists(roomId);
 
-    if (!room) {
-      return;
-    }
+    const newParticipant: Prisma.ChatParticipantCreateInput = {
+      user: {
+        connect: { id: userId },
+      },
+      chatRoom: {
+        connect: { id: roomId },
+      },
+    };
 
-    await this.prisma.chatRoom.delete({
-      where: { id: room.id },
+    await this.prisma.chatParticipant.create({
+      data: newParticipant,
     });
   }
 
@@ -129,33 +136,56 @@ export class ChatService implements OnApplicationShutdown {
     });
 
     if (!participant) {
-      return 0;
+      throw new NotFoundException('참가한 채팅방이 없습니다.');
     }
 
     const roomId = participant.roomId;
+    let hostCandidate;
+    if (participant.isHost) {
+      hostCandidate = await this.prisma.chatParticipant.findFirst({
+        where: { roomId, userId: { not: userId } },
+        orderBy: { joinedAt: 'asc' },
+        select: { userId: true },
+      });
+    }
     await this.prisma.$transaction(async (tx) => {
       await tx.chatParticipant.delete({
         where: { userId },
       });
 
-      let newHost;
-      if (participant.isHost) {
-        newHost = await tx.chatParticipant.findFirst({
-          where: { roomId },
-          orderBy: { joinedAt: 'asc' },
-        });
-
-        if (!newHost) {
-          return this.deleteChatRoom(participant.roomId);
-        }
-
+      if (hostCandidate) {
         await tx.chatParticipant.update({
-          where: { userId: newHost.userId },
+          where: { userId: hostCandidate.userId },
           data: { isHost: true },
+        });
+      } else {
+        await tx.chatRoom.update({
+          where: { id: roomId },
+          data: { deletedAt: new Date() },
         });
       }
     });
 
     return roomId;
+  }
+
+  async checkParticipantDuplication(userId: number): Promise<void> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
+    });
+
+    if (participant) {
+      throw new ConflictException('이미 참가한 채팅방이 존재합니다.');
+    }
+  }
+
+  async checkRoomIdExists(roomId: number): Promise<void> {
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId, deletedAt: null },
+    });
+
+    if (!room) {
+      throw new NotFoundException('채팅방이 존재하지 않습니다.');
+    }
   }
 }

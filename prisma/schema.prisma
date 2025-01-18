@@ -153,6 +153,8 @@ model ChatParticipant {
   chatRoom  ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
   joinedAt  DateTime    @default(now())
   isHost    Boolean     @default(false)
+
+  @@index([roomId, joinedAt])
 }
 
 model ChatAlcoholCategory {

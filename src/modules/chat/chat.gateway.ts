@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { ChatService } from './chat.service';
 import { UsePipes, ValidationPipe } from '@nestjs/common';
+import { JoinRoomDto } from './dtos/join-room.dto';
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatGateway {
@@ -68,6 +69,38 @@ export class ChatGateway {
     }
   }
 
+  @SubscribeMessage('join_room')
+  @UsePipes(new ValidationPipe())
+  async handleJoinRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() joinRoomDto: JoinRoomDto,
+  ) {
+    try {
+      const clientId = client.id;
+      const roomId = joinRoomDto.roomId;
+      const userId = await this.chatService.findUserByClientId(clientId);
+      await this.chatService.createParticipant(userId, roomId);
+
+      client.join(roomId.toString());
+      this.server.to(roomId.toString()).emit('user_joined', { userId });
+
+      return {
+        event: 'room_joined',
+        data: {
+          message: '채팅방에 참가하였습니다.',
+        },
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        event: 'error',
+        data: {
+          error: '채팅방 입장에 실패했습니다.',
+        },
+      };
+    }
+  }
+
   @SubscribeMessage('leave_room')
   async handleLeaveRoom(@ConnectedSocket() client: Socket) {
     try {
@@ -75,13 +108,13 @@ export class ChatGateway {
       const userId = await this.chatService.findUserByClientId(clientId);
       const roomId = await this.chatService.deleteParticipant(userId);
 
-      if (!roomId) {
+      if (roomId) {
         client.leave(roomId.toString());
         this.server.to(roomId.toString()).emit('user_left', { userId });
       }
 
       return {
-        event: 'room_leaved',
+        event: 'room_left',
         data: {
           message: '채팅방을 떠났습니다.',
         },
