@@ -188,4 +188,34 @@ export class ChatService implements OnApplicationShutdown {
       throw new NotFoundException('채팅방이 존재하지 않습니다.');
     }
   }
+
+  async saveMessageToRedis(
+    roomId: number,
+    userId: number,
+    message: string,
+  ): Promise<void> {
+    const key = `chat:room:${roomId}:messages`;
+
+    const messageData = {
+      userId,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+    await this.redis.lpush(key, JSON.stringify(messageData));
+    console.log(1, await this.redis.get(key));
+    //중간중간 DB에 들어가는 로직
+  }
+  async getRoomIdByUserId(userId: number): Promise<number | null> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
+      select: { roomId: true },
+    });
+
+    return participant?.roomId || null;
+  }
+  async getMessagesFromRedis(roomId: number): Promise<any[]> {
+    const key = `chat:room:${roomId}:messages`;
+    const messages = await this.redis.lrange(key, 0, -1);
+    return messages.map((message) => JSON.parse(message));
+  }
 }
