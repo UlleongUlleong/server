@@ -197,7 +197,7 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
       throw new NotFoundException('채팅방이 존재하지 않습니다.');
     }
   }
-  //
+
   async saveMessageToRedis(
     roomId: number,
     userId: number,
