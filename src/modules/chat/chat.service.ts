@@ -250,7 +250,7 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     await this.prisma.chatLog.createMany({
       data: chatMessages,
     });
-
+  }
   async findRoomsByOffset(
     findRoomDto: FindByOffsetDto,
   ): Promise<RoomResponseByOffset> {
