@@ -16,6 +16,12 @@ import { UserPayload } from 'src/common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { UserService } from '../user/user.service';
+import { FindByCursorDto } from './dtos/find-by-cursor.dto';
+import {
+  RoomResponseByCursor,
+  RoomResponseByOffset,
+} from './interfaces/room-response.interface';
+import { FindByOffsetDto } from './dtos/find-by-offset.dto';
 
 @Injectable()
 export class ChatService implements OnApplicationShutdown {
@@ -187,5 +193,159 @@ export class ChatService implements OnApplicationShutdown {
     if (!room) {
       throw new NotFoundException('채팅방이 존재하지 않습니다.');
     }
+  }
+
+  async findRoomsByOffset(
+    findRoomDto: FindByOffsetDto,
+  ): Promise<RoomResponseByOffset> {
+    const {
+      sort,
+      alcoholCategory,
+      moodCategory,
+      page = 1,
+      pageSize = 3,
+      keyword,
+    } = findRoomDto;
+
+    const [total, rooms] = await Promise.all([
+      await this.prisma.chatRoom.count({
+        where: this.getWhereCondition(keyword, alcoholCategory, moodCategory),
+      }),
+      await this.prisma.chatRoom.findMany({
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        where: this.getWhereCondition(keyword, alcoholCategory, moodCategory),
+        orderBy: this.getOrderByCondition(sort),
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          maxParticipants: true,
+          theme: {
+            select: {
+              imageUrl: true,
+            },
+          },
+          _count: {
+            select: {
+              participants: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = rooms?.map((room) => ({
+      id: room.id,
+      name: room.name,
+      description: room.description ? room.description : null,
+      theme: room.theme.imageUrl,
+      maxParticipants: room.maxParticipants,
+      participants: room._count.participants,
+    }));
+
+    const totalPages = Math.ceil(total / pageSize);
+    const meta = { total, pageSize, page, totalPages };
+
+    return { data, meta };
+  }
+
+  async findRoomsByCursor(
+    findRoomDto: FindByCursorDto,
+  ): Promise<RoomResponseByCursor> {
+    const {
+      sort,
+      alcoholCategory,
+      moodCategory,
+      cursor,
+      limit = 6,
+      keyword,
+    } = findRoomDto;
+
+    const rooms = await this.prisma.chatRoom.findMany({
+      take: limit + 1,
+      cursor: cursor ? { id: cursor } : undefined,
+      where: this.getWhereCondition(keyword, alcoholCategory, moodCategory),
+      orderBy: this.getOrderByCondition(sort),
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        maxParticipants: true,
+        theme: {
+          select: {
+            imageUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    const hasNext = rooms.length > limit;
+    const nextCursor = hasNext ? rooms[limit].id : null;
+    const formattedData = rooms?.map((room) => ({
+      id: room.id,
+      name: room.name,
+      description: room.description ? room.description : null,
+      theme: room.theme.imageUrl,
+      maxParticipants: room.maxParticipants,
+      participants: room._count.participants,
+    }));
+
+    const data = hasNext ? formattedData?.slice(0, -1) : formattedData;
+    const meta = { hasNext, nextCursor };
+
+    return { data, meta };
+  }
+
+  getOrderByCondition(sort: string): object {
+    switch (sort) {
+      case 'createdAt':
+        return { createdAt: 'desc' };
+      case 'popularAlcohol':
+        return {
+          alcoholCategory: {
+            _count: 'desc',
+          },
+        };
+      case 'participantCount':
+        return {
+          participants: {
+            _count: 'desc',
+          },
+        };
+      default:
+        return { createdAt: 'desc' };
+    }
+  }
+
+  getWhereCondition(
+    keyword: string,
+    alcoholCategory: string,
+    moodCategory: string,
+  ): object {
+    return {
+      name: { search: keyword },
+      description: { search: keyword },
+      deletedAt: null,
+      alcoholCategory: {
+        some: {
+          alcoholCategoryId: {
+            in: alcoholCategory?.split(',').map(Number),
+          },
+        },
+      },
+      moodCategory: {
+        some: {
+          moodCategoryId: {
+            in: moodCategory?.split(',').map(Number),
+          },
+        },
+      },
+    };
   }
 }
