@@ -7,6 +7,7 @@ import { ChatGateway } from './chat.gateway';
 import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from '../user/user.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ChatController } from './chat.controller';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     UserModule,
     ScheduleModule.forRoot(),
   ],
+  controllers: [ChatController],
   providers: [CategoryService, ChatService, ThemeService, ChatGateway],
 })
 export class ChatModule {}
