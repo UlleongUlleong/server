@@ -191,7 +191,7 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
   }
   //
   async onModuleInit() {
-    console.log('배치작업업');
+    console.log('배치작업');
     await this.startBatchSaveForAllRooms();
   }
   async saveMessageToRedis(
@@ -250,7 +250,6 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     const runBatchSave = async () => {
       try {
         await this.batchSaveMessagesToDB(roomId);
-        console.log(`저장`);
       } catch (error) {
         console.error(`저장실패`, error);
       }
