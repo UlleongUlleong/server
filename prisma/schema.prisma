@@ -146,6 +146,9 @@ model ChatRoom {
   alcoholCategory     ChatAlcoholCategory[]
   moodCategory        ChatMoodCategory[]
   chatLog             ChatLog[]
+
+  @@fulltext([name, description])
+
 }
 
 model ChatParticipant {
