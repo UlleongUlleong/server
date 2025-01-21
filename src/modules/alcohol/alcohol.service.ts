@@ -22,35 +22,6 @@ export class AlcoholService {
     }));
   }
 
-  // async findAlcohol(query): Promise<any[]> {
-  //   console.log(query);
-  //   const { category, keyword, sort, offset, limit, cursor } = query;
-  //   return await this.prisma.alcohol.findMany({
-  //     skip: cursor ? undefined : Number(offset) || 0,
-  //     take: Number(limit) || 5,
-  //     cursor: cursor ? { id: Number(cursor) } : undefined,
-  //     where: {
-  //       alcoholCategoryId: category ? Number(category) : undefined,
-  //       name: {
-  //         contains: keyword || undefined,
-  //       },
-  //     },
-  //     orderBy: sort ? { [sort]: 'desc' } : { name: 'desc' },
-  //     select: {
-  //       id: true,
-  //       alcoholCategory: {
-  //         select: {
-  //           id: true,
-  //           name: true,
-  //         },
-  //       },
-  //       name: true,
-  //       scoreAverage: true,
-  //       reviewCount: true,
-  //       imageUrl: true,
-  //     },
-  //   });
-  // }
   async findAlcohol(query): Promise<any[]> {
     console.log(query);
     const { category, keyword, sort, offset, limit, cursor } = query;
@@ -63,7 +34,7 @@ export class AlcoholService {
       take: Number(limit) || 10,
       cursor: cursor ? { id: Number(cursor) } : undefined,
     };
-    const orderParams: any = sort ? { [sort]: 'asc' } : { id: 'desc' };
+    const orderParams: any = sort ? { [sort]: 'asc' } : { id: 'asc' };
     return await this.prisma.alcohol.findMany({
       where: whereConditions,
       ...paginationParams,

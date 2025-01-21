@@ -6,6 +6,7 @@ import { ThemeService } from './theme.service';
 import { ChatGateway } from './chat.gateway';
 import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from '../user/user.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UserModule } from '../user/user.module';
       secret: process.env.JWT_SECRET_KEY,
     }),
     UserModule,
+    ScheduleModule.forRoot(),
   ],
   providers: [CategoryService, ChatService, ThemeService, ChatGateway],
 })

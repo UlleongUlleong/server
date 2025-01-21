@@ -17,6 +17,7 @@ import { UserPayload } from 'src/common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { UserService } from '../user/user.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ChatService implements OnModuleInit, OnApplicationShutdown {
@@ -28,7 +29,14 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     private jwtService: JwtService,
     private userService: UserService,
   ) {}
-
+  async onModuleInit() {
+    console.log('배치작업');
+  }
+  @Cron(CronExpression.EVERY_5_SECONDS)
+  async handleBatchSave() {
+    console.log('배치 저장');
+    await this.batchSaveMessagesToDB();
+  }
   async onApplicationShutdown(signal?: string) {
     console.log(`애플리케이션이 종료되었습니다.: ${signal}`);
     await this.deleteAllConnections();
@@ -190,19 +198,16 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     }
   }
   //
-  async onModuleInit() {
-    console.log('배치작업');
-    await this.startBatchSaveForAllRooms();
-  }
   async saveMessageToRedis(
     roomId: number,
     userId: number,
     message: string,
   ): Promise<void> {
-    const key = `chat:room:${roomId}:messages`;
+    const key = `chat:messages`;
 
     const messageData = {
       userId,
+      roomId,
       message,
       timestamp: new Date().toISOString(),
     };
@@ -217,25 +222,21 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
 
     return participant?.roomId || null;
   }
-  async getMessagesFromRedis(roomId: number): Promise<any[]> {
-    const key = `chat:room:${roomId}:messages`;
-    const messages = await this.redis.lrange(key, 0, -1);
-    return messages.map((message) => JSON.parse(message));
-  }
-
-  async batchSaveMessagesToDB(
-    roomId: number,
-    batchSize: number = 100,
-  ): Promise<void> {
-    const key = `chat:room:${roomId}:messages`;
-    const messages = await this.redis.lrange(key, 0, batchSize - 1);
+  async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
+    const key = `chat:messages`;
+    const messages = [];
+    for (let i = 0; i < batchSize; i++) {
+      const message = await this.redis.lpop(key);
+      if (!message) break;
+      const parsedMessage = JSON.parse(message);
+      messages.push(parsedMessage);
+    }
 
     if (messages.length === 0) return;
-
-    const parseMessages = messages.map((message) => JSON.parse(message));
-    const chatMessages = parseMessages.map((message) => ({
+    console.log(1, messages);
+    const chatMessages = messages.map((message) => ({
       userId: message.userId,
-      roomId: roomId,
+      roomId: message.roomId,
       message: message.message,
       loggedAt: message.timestamp,
     }));
@@ -243,35 +244,5 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     await this.prisma.chatLog.createMany({
       data: chatMessages,
     });
-    await this.redis.ltrim(key, messages.length, -1);
-  }
-
-  async startBatchSave(roomId: number, interval: number = 5000): Promise<void> {
-    const runBatchSave = async () => {
-      try {
-        await this.batchSaveMessagesToDB(roomId);
-      } catch (error) {
-        console.error(`저장실패`, error);
-      }
-      setTimeout(runBatchSave, interval);
-    };
-    runBatchSave();
-  }
-
-  async startBatchSaveForAllRooms(interval: number = 5000): Promise<void> {
-    const roomIds = await this.getAllRoomIds();
-
-    roomIds.forEach((roomId) => {
-      this.startBatchSave(roomId, interval);
-    });
-  }
-  async getAllRoomIds(): Promise<number[]> {
-    const participants = await this.prisma.chatParticipant.findMany({
-      select: { roomId: true },
-    });
-    const roomIds = [
-      ...new Set(participants.map((participant) => participant.roomId)),
-    ];
-    return roomIds;
   }
 }
