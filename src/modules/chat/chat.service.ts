@@ -6,6 +6,7 @@ import {
   NotFoundException,
   OnApplicationShutdown,
   UnauthorizedException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from 'src/common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
@@ -18,7 +19,7 @@ import Redis from 'ioredis';
 import { UserService } from '../user/user.service';
 
 @Injectable()
-export class ChatService implements OnApplicationShutdown {
+export class ChatService implements OnModuleInit, OnApplicationShutdown {
   constructor(
     @Inject('REDIS_CLIENT') private redis: Redis,
     private prisma: PrismaService,
@@ -188,7 +189,11 @@ export class ChatService implements OnApplicationShutdown {
       throw new NotFoundException('채팅방이 존재하지 않습니다.');
     }
   }
-
+  //
+  async onModuleInit() {
+    console.log('배치작업업');
+    await this.startBatchSaveForAllRooms();
+  }
   async saveMessageToRedis(
     roomId: number,
     userId: number,
@@ -202,8 +207,7 @@ export class ChatService implements OnApplicationShutdown {
       timestamp: new Date().toISOString(),
     };
     await this.redis.lpush(key, JSON.stringify(messageData));
-    console.log(1, await this.redis.get(key));
-    //중간중간 DB에 들어가는 로직
+    console.log(await this.redis.lrange(key, 0, -1));
   }
   async getRoomIdByUserId(userId: number): Promise<number | null> {
     const participant = await this.prisma.chatParticipant.findUnique({
@@ -217,5 +221,58 @@ export class ChatService implements OnApplicationShutdown {
     const key = `chat:room:${roomId}:messages`;
     const messages = await this.redis.lrange(key, 0, -1);
     return messages.map((message) => JSON.parse(message));
+  }
+
+  async batchSaveMessagesToDB(
+    roomId: number,
+    batchSize: number = 100,
+  ): Promise<void> {
+    const key = `chat:room:${roomId}:messages`;
+    const messages = await this.redis.lrange(key, 0, batchSize - 1);
+
+    if (messages.length === 0) return;
+
+    const parseMessages = messages.map((message) => JSON.parse(message));
+    const chatMessages = parseMessages.map((message) => ({
+      userId: message.userId,
+      roomId: roomId,
+      message: message.message,
+      loggedAt: message.timestamp,
+    }));
+
+    await this.prisma.chatLog.createMany({
+      data: chatMessages,
+    });
+    await this.redis.ltrim(key, messages.length, -1);
+  }
+
+  async startBatchSave(roomId: number, interval: number = 5000): Promise<void> {
+    const runBatchSave = async () => {
+      try {
+        await this.batchSaveMessagesToDB(roomId);
+        console.log(`저장`);
+      } catch (error) {
+        console.error(`저장실패`, error);
+      }
+      setTimeout(runBatchSave, interval);
+    };
+    runBatchSave();
+  }
+
+  async startBatchSaveForAllRooms(interval: number = 5000): Promise<void> {
+    const roomIds = await this.getAllRoomIds();
+
+    roomIds.forEach((roomId) => {
+      this.startBatchSave(roomId, interval);
+    });
+  }
+  async getAllRoomIds(): Promise<number[]> {
+    const participants = await this.prisma.chatParticipant.findMany({
+      select: { roomId: true },
+    });
+    const roomIds = [
+      ...new Set(participants.map((participant) => participant.roomId)),
+    ];
+    return roomIds;
   }
 }

@@ -152,7 +152,7 @@ export class ChatGateway {
       });
 
       return {
-        event: 'message_sent',
+        event: 'message_send',
         data: { message: '메시지가 전송' },
       };
     } catch (err) {

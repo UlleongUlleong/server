@@ -32,6 +32,7 @@ model User {
   userReviewAlochol UserReviewAlochol[]
   userInterestAlcohol UserInterestAlcohol[]
   room                ChatParticipant?
+  chatLog             ChatLog[]
 }
 
 model Profile {
@@ -144,6 +145,7 @@ model ChatRoom {
   participants        ChatParticipant[]
   alcoholCategory     ChatAlcoholCategory[]
   moodCategory        ChatMoodCategory[]
+  chatLog             ChatLog[]
 }
 
 model ChatParticipant {
@@ -173,4 +175,14 @@ model ChatMoodCategory {
   moodCategory      MoodCategory    @relation(fields: [moodCategoryId], references: [id])
 
   @@id([roomId, moodCategoryId])
+}
+
+model ChatLog {
+  id Int @id @default(autoincrement())
+  message String @db.VarChar(100)
+  loggedAt String @db.VarChar(100)
+  roomId Int?
+  userId Int
+  chatRoom ChatRoom? @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
