@@ -6,6 +6,7 @@ import {
   NotFoundException,
   OnApplicationShutdown,
   UnauthorizedException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from 'src/common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
@@ -16,6 +17,7 @@ import { UserPayload } from 'src/common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { UserService } from '../user/user.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindByCursorDto } from './dtos/find-by-cursor.dto';
 import {
   RoomResponseByCursor,
@@ -24,7 +26,7 @@ import {
 import { FindByOffsetDto } from './dtos/find-by-offset.dto';
 
 @Injectable()
-export class ChatService implements OnApplicationShutdown {
+export class ChatService implements OnModuleInit, OnApplicationShutdown {
   constructor(
     @Inject('REDIS_CLIENT') private redis: Redis,
     private prisma: PrismaService,
@@ -33,7 +35,14 @@ export class ChatService implements OnApplicationShutdown {
     private jwtService: JwtService,
     private userService: UserService,
   ) {}
-
+  async onModuleInit() {
+    console.log('배치작업');
+  }
+  @Cron(CronExpression.EVERY_5_SECONDS)
+  async handleBatchSave() {
+    console.log('배치 저장');
+    await this.batchSaveMessagesToDB();
+  }
   async onApplicationShutdown(signal?: string) {
     console.log(`애플리케이션이 종료되었습니다.: ${signal}`);
     await this.deleteAllConnections();
@@ -195,6 +204,53 @@ export class ChatService implements OnApplicationShutdown {
     }
   }
 
+  async saveMessageToRedis(
+    roomId: number,
+    userId: number,
+    message: string,
+  ): Promise<void> {
+    const key = `chat:messages`;
+
+    const messageData = {
+      userId,
+      roomId,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+    await this.redis.lpush(key, JSON.stringify(messageData));
+    console.log(await this.redis.lrange(key, 0, -1));
+  }
+  async getRoomIdByUserId(userId: number): Promise<number | null> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
+      select: { roomId: true },
+    });
+
+    return participant?.roomId || null;
+  }
+  async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
+    const key = `chat:messages`;
+    const messages = [];
+    for (let i = 0; i < batchSize; i++) {
+      const message = await this.redis.lpop(key);
+      if (!message) break;
+      const parsedMessage = JSON.parse(message);
+      messages.push(parsedMessage);
+    }
+
+    if (messages.length === 0) return;
+    console.log(1, messages);
+    const chatMessages = messages.map((message) => ({
+      userId: message.userId,
+      roomId: message.roomId,
+      message: message.message,
+      loggedAt: message.timestamp,
+    }));
+
+    await this.prisma.chatLog.createMany({
+      data: chatMessages,
+    });
+  }
   async findRoomsByOffset(
     findRoomDto: FindByOffsetDto,
   ): Promise<RoomResponseByOffset> {

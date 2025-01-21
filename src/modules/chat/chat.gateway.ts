@@ -127,4 +127,40 @@ export class ChatGateway {
       };
     }
   }
+
+  @SubscribeMessage('send_message')
+  async handleSendMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() message: string,
+  ) {
+    try {
+      console.log(message);
+      const userId = await this.chatService.findUserByClientId(client.id);
+      const roomId = await this.chatService.getRoomIdByUserId(userId);
+      if (!roomId) {
+        return {
+          event: 'error',
+          data: { error: '사용자가 속한 채팅방을 찾을 수 없습니다.' },
+        };
+      }
+      await this.chatService.saveMessageToRedis(roomId, userId, message);
+
+      this.server.to(roomId.toString()).emit('new_message', {
+        userId,
+        message,
+        timestamp: new Date().toString(),
+      });
+
+      return {
+        event: 'message_send',
+        data: { message: '메시지가 전송' },
+      };
+    } catch (err) {
+      console.log(err);
+      return {
+        event: 'error',
+        data: { err: '메시지 전송에 실패' },
+      };
+    }
+  }
 }

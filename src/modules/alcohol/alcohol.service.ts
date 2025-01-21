@@ -23,18 +23,22 @@ export class AlcoholService {
   }
 
   async findAlcohol(query): Promise<any[]> {
+    console.log(query);
     const { category, keyword, sort, offset, limit, cursor } = query;
-    return await this.prisma.alcohol.findMany({
+    const whereConditions: any = {
+      alcoholCategoryId: category ? Number(category) : undefined,
+      name: keyword ? { contains: keyword } : undefined,
+    };
+    const paginationParams: any = {
       skip: cursor ? undefined : Number(offset) || 0,
-      take: limit || 5,
+      take: Number(limit) || 10,
       cursor: cursor ? { id: Number(cursor) } : undefined,
-      where: {
-        alcoholCategoryId: category ? Number(category) : undefined,
-        name: {
-          contains: keyword || undefined,
-        },
-      },
-      orderBy: sort ? { [sort]: 'desc' } : { name: 'desc' },
+    };
+    const orderParams: any = sort ? { [sort]: 'asc' } : { id: 'asc' };
+    return await this.prisma.alcohol.findMany({
+      where: whereConditions,
+      ...paginationParams,
+      orderBy: orderParams,
       select: {
         id: true,
         alcoholCategory: {
