@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
@@ -9,6 +9,7 @@ import { PrismaModule } from './common/modules/prisma/prisma.module';
 import { MailModule } from './modules/mail/mail.module';
 
 import { ChatModule } from './modules/chat/chat.module';
+import { LoggingMiddleware } from './common/middlewares/logging.middleware';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -24,7 +25,7 @@ import { ChatModule } from './modules/chat/chat.module';
     AlcoholModule,
   ],
 })
-export class AppModule {
+export class AppModule implements NestModule {
   constructor() {
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -33,5 +34,9 @@ export class AppModule {
     } else {
       Logger.overrideLogger(['log', 'debug', 'warn', 'error']);
     }
+  }
+
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggingMiddleware).forRoutes('*');
   }
 }
