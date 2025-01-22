@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
@@ -11,7 +11,9 @@ import { MailModule } from './modules/mail/mail.module';
 import { ChatModule } from './modules/chat/chat.module';
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     AuthModule,
     UserModule,
     MailModule,
@@ -22,4 +24,14 @@ import { ChatModule } from './modules/chat/chat.module';
     AlcoholModule,
   ],
 })
-export class AppModule {}
+export class AppModule {
+  constructor() {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+      Logger.overrideLogger(['warn', 'error']);
+    } else {
+      Logger.overrideLogger(['log', 'debug', 'warn', 'error']);
+    }
+  }
+}
