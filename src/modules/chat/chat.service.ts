@@ -40,7 +40,6 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
   }
   @Cron(CronExpression.EVERY_5_SECONDS)
   async handleBatchSave() {
-    console.log('배치 저장');
     await this.batchSaveMessagesToDB();
   }
   async onApplicationShutdown(signal?: string) {

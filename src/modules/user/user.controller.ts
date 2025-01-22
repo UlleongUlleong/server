@@ -20,6 +20,7 @@ import { CreateUserDto } from './dtos/create-user.dto';
 import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
 import { ProfileDetail } from './interfaces/profile.interface';
 import { SkipStatusCheck } from 'src/common/decorators/skip-status-check.decorator';
+import { QueryAlcoholDto } from './dtos/query.dto';
 
 @Controller('users')
 export class UserController {
@@ -125,6 +126,36 @@ export class UserController {
       status: 'success',
       data: null,
       message: '계정이 삭제되었습니다.',
+    };
+  }
+
+  @Get('interest')
+  @UseGuards(JwtAuthGuard)
+  async getInterest(
+    @Req() req: AuthenticateRequest,
+    @Query() query: QueryAlcoholDto,
+  ): Promise<ApiResponse<any>> {
+    const id: number = req.user.sub;
+    const interestAlcoholInfo = await this.userService.findInterest(id, query);
+    return {
+      status: 'success',
+      data: interestAlcoholInfo,
+      message: '관심있는 술 조회',
+    };
+  }
+
+  @Get('reviews')
+  @UseGuards(JwtAuthGuard)
+  async getMyReview(
+    @Req() req: AuthenticateRequest,
+    @Query() query: QueryAlcoholDto,
+  ): Promise<ApiResponse<any>> {
+    const id: number = req.user.sub;
+    const myReviewInfo = await this.userService.findMyReview(id, query);
+    return {
+      status: 'success',
+      data: myReviewInfo,
+      message: '댓글 단 술 조회',
     };
   }
 }

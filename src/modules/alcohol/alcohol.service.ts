@@ -98,6 +98,12 @@ export class AlcoholService {
       scoreAverage: parseFloat(alcoholInfo.scoreAverage.toFixed(1)),
       reviewCount: alcoholInfo.reviewCount,
       imageUrl: alcoholInfo.imageUrl,
+      price: alcoholInfo.price,
+      origin: alcoholInfo.origin,
+      interestCount: alcoholInfo.interestCount,
+      abv: alcoholInfo.abv,
+      volume: alcoholInfo.volume,
+      description: alcoholInfo.description,
     };
   }
 
@@ -176,5 +182,15 @@ export class AlcoholService {
       data: { userId, alcoholId },
     });
     return true;
+  }
+
+  async findMarkStatus(userId: number, alcoholId: number): Promise<boolean> {
+    const isExist = await this.prisma.userInterestAlcohol.findUnique({
+      where: { userId_alcoholId: { userId, alcoholId } },
+    });
+    if (isExist) {
+      return true;
+    }
+    return false;
   }
 }
