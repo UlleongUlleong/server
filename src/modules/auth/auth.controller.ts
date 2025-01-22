@@ -85,7 +85,7 @@ export class AuthController {
       // sameSite: 'strict',
     });
 
-    return res.redirect(process.env.FRONT_URL);
+    return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
   @Get('naver')
@@ -109,7 +109,7 @@ export class AuthController {
       // sameSite: 'strict',
     });
 
-    return res.redirect(process.env.FRONT_URL);
+    return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
   @Get('kakao')
@@ -133,7 +133,7 @@ export class AuthController {
       // sameSite: 'strict',
     });
 
-    return res.redirect(process.env.FRONT_URL);
+    return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
   @Post('email-codes')
