@@ -11,7 +11,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
   app.enableCors({
     origin: process.env.FRONTEND_ORIGIN,
-    methods: 'GET, POST, PUT, DELETE, PATCH',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: 'Content-Type, Authorization',
     credentials: true,
   });
