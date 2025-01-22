@@ -18,6 +18,9 @@ import { ProfileDetail } from './interfaces/profile.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { CategoryService } from '../category/category.service';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
+import { QueryAlcoholDto } from './dtos/query.dto';
+import { UserReviewDto } from './dtos/review.dto';
+import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
 
 @Injectable()
 export class UserService {
@@ -285,5 +288,63 @@ export class UserService {
       where: { id },
       data: { deletedAt: null },
     });
+  }
+
+  async findInterest(
+    id: number,
+    query: QueryAlcoholDto,
+  ): Promise<AlcoholInfoDto[]> {
+    const interestAlcoholInfo = await this.prisma.userInterestAlcohol.findMany({
+      where: { userId: id },
+      take: query.limit ? Number(query.limit) : 5,
+      cursor: query.cursor
+        ? { userId_alcoholId: { userId: id, alcoholId: Number(query.cursor) } }
+        : undefined,
+      orderBy: { createdAt: 'asc' },
+      select: {
+        alcohol: {
+          select: {
+            id: true,
+            name: true,
+            scoreAverage: true,
+            imageUrl: true,
+          },
+        },
+      },
+    });
+    const alcoholInfoDtos: AlcoholInfoDto[] = interestAlcoholInfo.map(
+      (item) => ({
+        id: item.alcohol.id,
+        name: item.alcohol.name,
+        scoreAverage: item.alcohol.scoreAverage,
+        imageUrl: item.alcohol.imageUrl,
+      }),
+    );
+    return alcoholInfoDtos;
+  }
+
+  async findMyReview(
+    id: number,
+    query: QueryAlcoholDto,
+  ): Promise<UserReviewDto[]> {
+    const myReviewInfo = await this.prisma.userReviewAlochol.findMany({
+      where: { userId: id },
+      take: query.limit ? Number(query.limit) : 5,
+      cursor: query.cursor ? { id: Number(query.cursor) } : undefined,
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        score: true,
+        comment: true,
+        alcoholId: true,
+        alcohol: {
+          select: {
+            imageUrl: true,
+            name: true,
+          },
+        },
+      },
+    });
+    return myReviewInfo;
   }
 }

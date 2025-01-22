@@ -1,12 +1,3 @@
-// export class AlcoholDto {
-//   total?: object;
-//   soju?: object;
-//   beer?: object;
-//   whiskey?: object;
-//   wine?: object;
-//   makgeolli?: object;
-// }
-
 export class AlcoholDto {
   id: number;
   name: string;
@@ -17,4 +8,10 @@ export class AlcoholDto {
   scoreAverage: number;
   reviewCount: number;
   imageUrl: string;
+  price?: number;
+  origin?: string;
+  interestCount?: number;
+  abv?: number;
+  volume?: number;
+  description?: string;
 }

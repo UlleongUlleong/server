@@ -34,18 +34,26 @@ export class AlcoholController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOneAlcohol(
+    @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) id: number,
     @Query('cursor') cursor?: number,
   ): Promise<
-    ApiResponse<{ alcoholInfo: AlcoholDto; reviewInfo: ReviewDto[] }>
+    ApiResponse<{
+      alcoholInfo: AlcoholDto;
+      reviewInfo: ReviewDto[];
+      markStatus: boolean;
+    }>
   > {
+    const userId: number = req.user.sub;
     const { alcoholInfo, reviewInfo } =
       await this.alcoholService.getAlcoholDetail(id, cursor);
+    const markStatus = await this.alcoholService.findMarkStatus(userId, id);
     return {
       status: 'success',
-      data: { alcoholInfo, reviewInfo },
+      data: { alcoholInfo, reviewInfo, markStatus },
       message: '특정 술 조회',
     };
   }

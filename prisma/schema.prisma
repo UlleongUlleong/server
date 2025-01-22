@@ -119,6 +119,7 @@ model UserReviewAlochol {
 model UserInterestAlcohol {
   userId Int
   alcoholId Int
+  createdAt DateTime @default(now())
 
   @@id([userId, alcoholId])
   user User @relation(fields: [userId], references: [id])
