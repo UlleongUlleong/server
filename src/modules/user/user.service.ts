@@ -165,7 +165,7 @@ export class UserService {
       alcoholCategory = [],
       moodCategory = [],
     } = createUserDto;
-    const redisKey = `users:${email}:access_allowed`;
+    const redisKey = `verify:complete:users:${email}`;
     const isAllowed = await this.redis.get(redisKey);
     if (!isAllowed || !Number(isAllowed)) {
       throw new UnauthorizedException('인증 후에 회원가입을 진행해주세요.');
@@ -252,7 +252,7 @@ export class UserService {
     const user = await this.findUserById(id);
     const { email } = user;
 
-    const redisKey = `users:${email}:access_allowed`;
+    const redisKey = `verify:complete:users:${email}`;
     const isAllowed = await this.redis.get(redisKey);
     if (!isAllowed || !Number(isAllowed)) {
       throw new UnauthorizedException('인증 후에 탈퇴를 진행해주세요.');

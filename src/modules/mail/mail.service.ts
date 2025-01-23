@@ -97,7 +97,7 @@ export class MailService {
   }
 
   async allowAccess(email: string) {
-    const key = `users:${email}:access_allowed`;
+    const key = `verify:complete:users:${email}`;
     await this.redis.set(key, 1, 'EX', 3600);
   }
 }
