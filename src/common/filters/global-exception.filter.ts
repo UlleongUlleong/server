@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { Request, Response } from 'express';
+import { HttpExceptionResponse } from '../interfaces/exception-response.interface';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -26,12 +27,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
-      message =
-        typeof exceptionResponse === 'string'
-          ? exceptionResponse
-          : (exceptionResponse as any).message || message;
-      error = (exceptionResponse as any).error || 'Bad Request';
+      const exceptionResponse =
+        exception.getResponse() as HttpExceptionResponse;
+      message = exceptionResponse.message || message;
+      error = exceptionResponse.error || 'Bad Request';
 
       this.logger.error(`${method} ${originalUrl} - ${error}`);
     } else if (
