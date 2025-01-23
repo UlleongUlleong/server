@@ -8,6 +8,7 @@ import {
   UseGuards,
   Req,
   ParseIntPipe,
+  Put,
 } from '@nestjs/common';
 import { AlcoholService } from './alcohol.service';
 import { AlcoholQueryDto } from './dtos/alcohol-query.dto';
@@ -35,26 +36,21 @@ export class AlcoholController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOneAlcohol(
-    @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) id: number,
     @Query() query?: AlcoholQueryDto,
   ): Promise<
     ApiResponse<{
       alcoholInfo: AlcoholDto;
       reviewInfo: ReviewDto[];
-      markStatus: boolean;
     }>
   > {
-    const userId: number = req.user.sub;
     const { alcoholInfo, meta, reviewInfo } =
       await this.alcoholService.getAlcoholDetail(id, query);
-    const markStatus = await this.alcoholService.findMarkStatus(userId, id);
     return {
       status: 'success',
-      data: { alcoholInfo, reviewInfo, markStatus },
+      data: { alcoholInfo, reviewInfo },
       meta: meta,
       message: '특정 술 조회',
     };
@@ -77,11 +73,11 @@ export class AlcoholController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':id/mark')
+  @Put(':id/mark')
   async markStatus(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
-  ): Promise<ApiResponse<object>> {
+  ): Promise<ApiResponse<boolean>> {
     const userId: number = req.user.sub;
     const isBookmarked = await this.alcoholService.markStatus(
       userId,
@@ -89,10 +85,26 @@ export class AlcoholController {
     );
     return {
       status: 'success',
-      data: null,
-      message: isBookmarked
-        ? '북마크가 추가되었습니다'
-        : '북마크가 취소되었습니다',
+      data: isBookmarked,
+      message: isBookmarked ? '북마크' : '북마크가 취소되었습니다',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/mark')
+  async findMark(
+    @Req() req: AuthenticateRequest,
+    @Param('id', ParseIntPipe) alcoholId: number,
+  ): Promise<ApiResponse<boolean>> {
+    const userId: number = req.user.sub;
+    const markStatus = await this.alcoholService.findMarkStatus(
+      userId,
+      alcoholId,
+    );
+    return {
+      status: 'success',
+      data: markStatus,
+      message: '북마크 조회완료',
     };
   }
 }
