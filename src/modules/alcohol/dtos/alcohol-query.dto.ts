@@ -12,7 +12,10 @@ export class AlcoholQueryDto {
   keyword?: string;
 
   @IsOptional()
-  @IsIn(['name', 'createdAt', 'reviewCount', 'scoreAverage', 'interestCount'])
+  @IsIn(['name', 'createdAt', 'reviewCount', 'scoreAverage', 'interestCount'], {
+    message:
+      'sort는 "name", "createdAt", "reviewCount", "scoreAverage", "interestCount" 중 하나여야 합니다.',
+  })
   sort?: string;
 
   @IsOptional()
@@ -23,7 +26,7 @@ export class AlcoholQueryDto {
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  limit?: number = 4;
+  limit?: number;
 
   @IsOptional()
   @IsInt()

@@ -1,10 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
-  HttpException,
-  HttpStatus,
   Inject,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import Redis from 'ioredis';
@@ -19,8 +18,11 @@ import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { CategoryService } from '../category/category.service';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { QueryAlcoholDto } from './dtos/query.dto';
-import { UserReviewDto } from './dtos/review.dto';
-import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
+import { AlcoholSummary } from './interfaces/alcohol-summary.interface';
+import { AlcoholQueryDto } from '../alcohol/dtos/alcohol-query.dto';
+import { InterestResponse } from './interfaces/interest-response.interface';
+import { ReviewResponse } from './interfaces/review-response.interface';
+import { CursorPagination } from 'src/common/interfaces/pagination.interface';
 
 @Injectable()
 export class UserService {
@@ -55,13 +57,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: '사용자를 찾을 수 없습니다.',
-        },
-        HttpStatus.NOT_FOUND,
-      );
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
     return {
@@ -145,13 +141,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: '사용자를 찾을 수 없습니다.',
-        },
-        HttpStatus.NOT_FOUND,
-      );
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
     return user;
@@ -293,7 +283,7 @@ export class UserService {
   async findInterest(
     id: number,
     query: QueryAlcoholDto,
-  ): Promise<AlcoholInfoDto[]> {
+  ): Promise<InterestResponse> {
     const interestAlcoholInfo = await this.prisma.userInterestAlcohol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -312,21 +302,20 @@ export class UserService {
         },
       },
     });
-    const alcoholInfoDtos: AlcoholInfoDto[] = interestAlcoholInfo.map(
-      (item) => ({
-        id: item.alcohol.id,
-        name: item.alcohol.name,
-        scoreAverage: item.alcohol.scoreAverage,
-        imageUrl: item.alcohol.imageUrl,
-      }),
-    );
-    return alcoholInfoDtos;
+    const alcoholInfo: AlcoholSummary[] = interestAlcoholInfo.map((item) => ({
+      id: item.alcohol.id,
+      name: item.alcohol.name,
+      scoreAverage: item.alcohol.scoreAverage,
+      imageUrl: item.alcohol.imageUrl,
+    }));
+    const pagination = await this.createCursorMeta(query, alcoholInfo);
+    return { alcoholInfo, pagination };
   }
 
   async findMyReview(
     id: number,
     query: QueryAlcoholDto,
-  ): Promise<UserReviewDto[]> {
+  ): Promise<ReviewResponse> {
     const myReviewInfo = await this.prisma.userReviewAlochol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -345,6 +334,21 @@ export class UserService {
         },
       },
     });
-    return myReviewInfo;
+    const pagination = await this.createCursorMeta(query, myReviewInfo);
+    return { myReviewInfo, pagination };
+  }
+
+  async createCursorMeta(
+    query: AlcoholQueryDto,
+    list: { id: number }[],
+  ): Promise<CursorPagination> {
+    const last = list[list.length - 1];
+    const nextCursor = last ? last.id : null;
+    const hasNext = list.length === Number(query.limit);
+
+    return {
+      hasNext: hasNext,
+      nextCursor: nextCursor,
+    };
   }
 }

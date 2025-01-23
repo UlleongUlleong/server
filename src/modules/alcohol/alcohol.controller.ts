@@ -8,15 +8,16 @@ import {
   UseGuards,
   Req,
   ParseIntPipe,
+  Put,
 } from '@nestjs/common';
 import { AlcoholService } from './alcohol.service';
 import { AlcoholQueryDto } from './dtos/alcohol-query.dto';
 import { CreateReviewDto } from './dtos/create-review.dto';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { CustomResponse } from 'src/common/interfaces/api-response.interface';
-import { AlcoholDto } from './dtos/alcohol.dto';
-import { ReviewDto } from './dtos/review.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CustomResponse } from '../../common/interfaces/api-response.interface';
 import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
+import { Alcohol } from './inerfaces/alcohol.interface';
+import { Review } from './inerfaces/review.interface';
 
 @Controller('alcohol')
 export class AlcoholController {
@@ -25,33 +26,30 @@ export class AlcoholController {
   @Get()
   async findAlcohols(
     @Query() query: AlcoholQueryDto,
-  ): Promise<CustomResponse<AlcoholDto[]>> {
-    const info = await this.alcoholService.getAlcohols(query);
+  ): Promise<CustomResponse<Alcohol[]>> {
+    const { data, pagination } = await this.alcoholService.getAlcohols(query);
     return {
-      data: info,
+      data: data,
+      pagination,
+      message: '술 메인페이지',
     };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOneAlcohol(
-    @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Query('cursor') cursor?: number,
+    @Query() query?: AlcoholQueryDto,
   ): Promise<
     CustomResponse<{
-      alcoholInfo: AlcoholDto;
-      reviewInfo: ReviewDto[];
-      markStatus: boolean;
+      alcoholInfo: Alcohol;
+      reviewInfo: Review[];
     }>
   > {
-    const userId: number = req.user.sub;
-    const { alcoholInfo, reviewInfo } =
-      await this.alcoholService.getAlcoholDetail(id, cursor);
-    const markStatus = await this.alcoholService.findMarkStatus(userId, id);
+    const { alcoholInfo, pagination, reviewInfo } =
+      await this.alcoholService.getAlcoholDetail(id, query);
     return {
-      data: { alcoholInfo, reviewInfo, markStatus },
-      message: '특정 술 조회',
+      data: { alcoholInfo, reviewInfo },
+      pagination,
     };
   }
 
@@ -61,35 +59,46 @@ export class AlcoholController {
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
     @Body() reviewInfo: CreateReviewDto,
-  ): Promise<CustomResponse<{ alcohol: AlcoholDto; reviews: ReviewDto[] }>> {
+  ): Promise<CustomResponse<{ alcohol: Alcohol; reviews: Review[] }>> {
     const userId: number = req.user.sub;
-    const { alcohol, reviews } = await this.alcoholService.createReview(
-      userId,
-      alcoholId,
-      reviewInfo,
-    );
+    await this.alcoholService.createReview(userId, alcoholId, reviewInfo);
     return {
-      data: { alcohol, reviews },
+      data: null,
       message: '리뷰 작성완료',
     };
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':id/mark')
+  @Put(':id/mark')
   async markStatus(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
-  ): Promise<CustomResponse<object>> {
+  ): Promise<CustomResponse<boolean>> {
     const userId: number = req.user.sub;
     const isBookmarked = await this.alcoholService.markStatus(
       userId,
       alcoholId,
     );
     return {
-      data: null,
-      message: isBookmarked
-        ? '북마크가 추가되었습니다'
-        : '북마크가 취소되었습니다',
+      data: isBookmarked,
+      message: isBookmarked ? '북마크' : '북마크가 취소되었습니다',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/mark')
+  async findMark(
+    @Req() req: AuthenticateRequest,
+    @Param('id', ParseIntPipe) alcoholId: number,
+  ): Promise<CustomResponse<boolean>> {
+    const userId: number = req.user.sub;
+    const markStatus = await this.alcoholService.findMarkStatus(
+      userId,
+      alcoholId,
+    );
+    return {
+      data: markStatus,
+      message: '북마크 조회완료',
     };
   }
 }

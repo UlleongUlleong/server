@@ -1,18 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { AlcoholQueryDto } from './dtos/alcohol-query.dto';
-import { AlcoholDto } from './dtos/alcohol.dto';
+import { Alcohol } from './inerfaces/alcohol.interface';
 import { CreateReviewDto } from './dtos/create-review.dto';
-import { ReviewDto } from './dtos/review.dto';
+import { Review } from './inerfaces/review.interface';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from 'src/common/interfaces/pagination.interface';
 
 @Injectable()
 export class AlcoholService {
   constructor(private prisma: PrismaService) {}
 
-  async getAlcohols(query: AlcoholQueryDto): Promise<AlcoholDto[]> {
+  async getAlcohols(query: AlcoholQueryDto): Promise<{
+    data: Alcohol[];
+    pagination: Pagination;
+  }> {
     const alcoholList = await this.findAlcohol(query);
 
-    return alcoholList.map((alcohol) => ({
+    const pagination = query.cursor
+      ? await this.createCursorMeta(query, alcoholList)
+      : await this.createOffsetMeta(query);
+
+    const alcoholDtos: Alcohol[] = alcoholList.map((alcohol) => ({
       id: alcohol.id,
       name: alcohol.name,
       alcoholCategory: alcohol.alcoholCategory,
@@ -20,34 +32,72 @@ export class AlcoholService {
       reviewCount: alcohol.reviewCount,
       imageUrl: alcohol.imageUrl,
     }));
+
+    return { data: alcoholDtos, pagination };
   }
 
-  async findAlcohol(query): Promise<any[]> {
-    console.log(query);
+  async createOffsetMeta(query: AlcoholQueryDto): Promise<OffsetPagination> {
+    const totalAlcohols = await this.prisma.alcohol.count({
+      where: {
+        alcoholCategoryId: query.category ? Number(query.category) : undefined,
+        name: query.keyword ? { contains: query.keyword } : undefined,
+      },
+    });
+
+    const totalPages = Math.ceil(totalAlcohols / (query.limit || 10));
+
+    const page = query.offset
+      ? Math.floor(Number(query.offset) / (query.limit || 10)) + 1
+      : 1;
+
+    return {
+      totalItems: totalAlcohols,
+      itemsPerPage: query.limit || 10,
+      currentPage: page,
+      totalPages: totalPages,
+    };
+  }
+
+  async createCursorMeta(
+    query: AlcoholQueryDto,
+    alcoholList: { id: number }[],
+  ): Promise<CursorPagination> {
+    const lastAlcohol = alcoholList[alcoholList.length - 1];
+    const nextCursor = lastAlcohol ? lastAlcohol.id : null;
+
+    const hasNext = alcoholList.length === query.limit;
+
+    return {
+      hasNext: hasNext,
+      nextCursor: nextCursor,
+    };
+  }
+
+  async findAlcohol(query: AlcoholQueryDto): Promise<Alcohol[]> {
     const { category, keyword, sort, offset, limit, cursor } = query;
-    const whereConditions: any = {
+    const whereConditions = {
       alcoholCategoryId: category ? Number(category) : undefined,
       name: keyword ? { contains: keyword } : undefined,
     };
-    const paginationParams: any = {
-      skip: cursor ? undefined : Number(offset) || 0,
+    const paginationParams = {
+      skip: offset ? Number(offset) : undefined,
       take: Number(limit) || 10,
       cursor: cursor ? { id: Number(cursor) } : undefined,
     };
-    const orderParams: any = sort ? { [sort]: 'asc' } : { id: 'asc' };
+    const orderParams: any = sort ? { [sort]: 'asc' } : { createdAt: 'asc' };
     return await this.prisma.alcohol.findMany({
       where: whereConditions,
       ...paginationParams,
       orderBy: orderParams,
       select: {
         id: true,
+        name: true,
         alcoholCategory: {
           select: {
             id: true,
             name: true,
           },
         },
-        name: true,
         scoreAverage: true,
         reviewCount: true,
         imageUrl: true,
@@ -57,17 +107,22 @@ export class AlcoholService {
 
   async getAlcoholDetail(
     id: number,
-    cursor?: number,
-  ): Promise<{ alcoholInfo: AlcoholDto; reviewInfo: ReviewDto[] }> {
-    if (cursor) {
-      cursor = Number(cursor);
+    query?: AlcoholQueryDto,
+  ): Promise<{
+    alcoholInfo: Alcohol;
+    pagination: CursorPagination;
+    reviewInfo: Review[];
+  }> {
+    if (query.cursor) {
+      query.cursor = Number(query.cursor);
     }
     const alcoholInfo = await this.findAlcoholById(id);
-    const reviewInfo = await this.getReview(id, cursor);
-    return { alcoholInfo, reviewInfo };
+    const reviewInfo = await this.getReview(id, query);
+    const pagination = await this.createCursorMeta(query, reviewInfo);
+    return { alcoholInfo, pagination, reviewInfo };
   }
 
-  async findAlcoholById(id: number): Promise<AlcoholDto> {
+  async findAlcoholById(id: number): Promise<Alcohol> {
     const alcoholInfo = await this.prisma.alcohol.findUnique({
       where: { id },
       select: {
@@ -111,7 +166,7 @@ export class AlcoholService {
     userId: number,
     alcoholId: number,
     reviewInfo: CreateReviewDto,
-  ): Promise<{ alcohol: AlcoholDto; reviews: ReviewDto[] }> {
+  ): Promise<{ alcohol: Alcohol; reviews: Review[] }> {
     await this.prisma.userReviewAlochol.create({
       data: {
         score: reviewInfo.score,
@@ -143,16 +198,20 @@ export class AlcoholService {
       },
     });
 
-    const reviews = await this.getReview(alcoholId);
-    const alcohol = await this.findAlcoholById(alcoholId);
-    return { alcohol, reviews };
+    // const reviews = await this.getReview(alcoholId);
+    // const alcohol = await this.findAlcoholById(alcoholId);
+    // return { alcohol, reviews };
+    return;
   }
 
-  async getReview(alcoholId: number, cursor?: number): Promise<ReviewDto[]> {
+  async getReview(
+    alcoholId: number,
+    query: AlcoholQueryDto,
+  ): Promise<Review[]> {
     const reviews = await this.prisma.userReviewAlochol.findMany({
       where: { alcoholId },
-      take: 5,
-      cursor: cursor ? { id: cursor } : undefined,
+      take: query.limit ? Number(query.limit) : 5,
+      cursor: query.cursor ? { id: query.cursor } : undefined,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

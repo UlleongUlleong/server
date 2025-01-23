@@ -21,8 +21,8 @@ import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.int
 import { ProfileDetail } from './interfaces/profile.interface';
 import { SkipStatusCheck } from 'src/common/decorators/skip-status-check.decorator';
 import { QueryAlcoholDto } from './dtos/query.dto';
-import { UserReviewDto } from './dtos/review.dto';
-import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
+import { Review } from '../alcohol/inerfaces/review.interface';
+import { AlcoholSummary } from './interfaces/alcohol-summary.interface';
 
 @Controller('users')
 export class UserController {
@@ -128,11 +128,15 @@ export class UserController {
   async getInterest(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<CustomResponse<AlcoholInfoDto[]>> {
+  ): Promise<CustomResponse<AlcoholSummary[]>> {
     const id: number = req.user.sub;
-    const interestAlcoholInfo = await this.userService.findInterest(id, query);
+    const { alcoholInfo, pagination } = await this.userService.findInterest(
+      id,
+      query,
+    );
     return {
-      data: interestAlcoholInfo,
+      data: alcoholInfo,
+      pagination,
     };
   }
 
@@ -141,11 +145,15 @@ export class UserController {
   async getMyReview(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<CustomResponse<UserReviewDto[]>> {
+  ): Promise<CustomResponse<Review[]>> {
     const id: number = req.user.sub;
-    const myReviewInfo = await this.userService.findMyReview(id, query);
+    const { myReviewInfo, pagination } = await this.userService.findMyReview(
+      id,
+      query,
+    );
     return {
       data: myReviewInfo,
+      pagination,
     };
   }
 }

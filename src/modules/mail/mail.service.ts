@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Transporter } from 'nodemailer';
 import * as nodemailer from 'nodemailer';
@@ -72,13 +73,7 @@ export class MailService {
     const code = await this.redis.get(key);
 
     if (!code) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: '인증 코드가 만료됐습니다.',
-        },
-        HttpStatus.NOT_FOUND,
-      );
+      throw new NotFoundException('인증 코드가 만료됐습니다.');
     }
 
     return code;
