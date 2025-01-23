@@ -10,6 +10,7 @@ import { MailModule } from './modules/mail/mail.module';
 
 import { ChatModule } from './modules/chat/chat.module';
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
+import { checkNodeEnvIsProduction } from './common/utils/environment.util';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -27,10 +28,8 @@ import { LoggingMiddleware } from './common/middlewares/logging.middleware';
 })
 export class AppModule implements NestModule {
   constructor() {
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (isProduction) {
-      Logger.overrideLogger(['warn', 'error']);
+    if (checkNodeEnvIsProduction()) {
+      Logger.overrideLogger(['log', 'warn', 'error']);
     } else {
       Logger.overrideLogger(['log', 'debug', 'warn', 'error']);
     }
