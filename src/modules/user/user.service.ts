@@ -22,6 +22,9 @@ import { QueryAlcoholDto } from './dtos/query.dto';
 // import { UserReviewDto } from './dtos/review.dto';
 import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
 import { AlcoholQueryDto } from '../alcohol/dtos/alcohol-query.dto';
+import { ResponseInterestDto } from './dtos/response-interest.dto';
+import { ResPonseReviewDto } from './dtos/response-review.dto';
+import { ResPonseCursorDto } from '../alcohol/dtos/response-cursor.dto';
 
 @Injectable()
 export class UserService {
@@ -291,7 +294,10 @@ export class UserService {
     });
   }
 
-  async findInterest(id: number, query: QueryAlcoholDto): Promise<any> {
+  async findInterest(
+    id: number,
+    query: QueryAlcoholDto,
+  ): Promise<ResponseInterestDto> {
     const interestAlcoholInfo = await this.prisma.userInterestAlcohol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -322,7 +328,10 @@ export class UserService {
     return { alcoholInfoDtos, meta };
   }
 
-  async findMyReview(id: number, query: QueryAlcoholDto): Promise<any> {
+  async findMyReview(
+    id: number,
+    query: QueryAlcoholDto,
+  ): Promise<ResPonseReviewDto> {
     const myReviewInfo = await this.prisma.userReviewAlochol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -345,7 +354,10 @@ export class UserService {
     return { myReviewInfo, meta };
   }
 
-  async createCursorMeta(query: AlcoholQueryDto, list: any): Promise<any> {
+  async createCursorMeta(
+    query: AlcoholQueryDto,
+    list: { id: number }[],
+  ): Promise<ResPonseCursorDto> {
     const last = list[list.length - 1];
     const nextCursor = last ? last.id : null;
     const hasNext = list.length === Number(query.limit);
