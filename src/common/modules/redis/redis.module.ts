@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Logger, Module } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Global()
@@ -7,6 +7,7 @@ import Redis from 'ioredis';
     {
       provide: 'REDIS_CLIENT',
       useFactory: async () => {
+        const logger = new Logger(RedisModule.name);
         const redis = new Redis({
           host: process.env.REDIS_HOST,
           port: Number(process.env.REDIS_PORT),
@@ -14,8 +15,10 @@ import Redis from 'ioredis';
           db: Number(process.env.REDIS_DB),
         });
 
-        redis.on('error', (err) => console.log('Redis client error:', err));
-        redis.on('connect', () => console.log('Redis client is connected.'));
+        redis.on('error', (err) =>
+          logger.error('Redis client error: ', err.message),
+        );
+        redis.on('connect', () => logger.log('Redis client is connected.'));
 
         return redis;
       },

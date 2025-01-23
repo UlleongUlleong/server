@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserService } from './user.service';
-import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { CustomResponse } from '../../common/interfaces/api-response.interface';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { NicknameDto } from './dtos/nickname.dto';
@@ -21,8 +21,8 @@ import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.int
 import { ProfileDetail } from './interfaces/profile.interface';
 import { SkipStatusCheck } from 'src/common/decorators/skip-status-check.decorator';
 import { QueryAlcoholDto } from './dtos/query.dto';
-import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
-import { ReviewDto } from '../alcohol/dtos/review.dto';
+import { Review } from '../alcohol/inerfaces/review.interface';
+import { AlcoholSummary } from './interfaces/alcohol-summary.interface';
 
 @Controller('users')
 export class UserController {
@@ -33,11 +33,10 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async getUserProfile(
     @Req() req: AuthenticateRequest,
-  ): Promise<ApiResponse<ProfileDetail>> {
+  ): Promise<CustomResponse<ProfileDetail>> {
     const id: number = req.user.sub;
     const profile = await this.userService.findProfileWithRelation(id);
     return {
-      status: 'success',
       data: profile,
       message: '내 프로필을 가져왔습니다.',
     };
@@ -48,25 +47,22 @@ export class UserController {
   async updateUserProfile(
     @Req() req: AuthenticateRequest,
     @Body() updateProfileDto: UpdateProfileDto,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     const id: number = req.user.sub;
     await this.userService.updateUserProfile(id, updateProfileDto);
 
     return {
-      status: 'success',
       data: null,
-      message: '프로필 수정',
     };
   }
 
   @Get('email/availability')
   async checkEmailExists(
     @Query() emailDto: EmailDto,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     await this.userService.checkEmailDuplication(emailDto);
 
     return {
-      status: 'success',
       data: null,
       message: '사용가능한 이메일입니다.',
     };
@@ -75,11 +71,10 @@ export class UserController {
   @Get('nickname/availability')
   async checkNicknameExists(
     @Query() nicknameDto: NicknameDto,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     await this.userService.checkNicknameDuplication(nicknameDto);
 
     return {
-      status: 'success',
       data: null,
       message: '사용가능한 닉네임입니다.',
     };
@@ -88,11 +83,10 @@ export class UserController {
   @Post()
   async createUser(
     @Body() createUserDto: CreateUserDto,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     await this.userService.createEmailUser(createUserDto);
 
     return {
-      status: 'success',
       data: null,
       message: '회원가입이 완료되었습니다.',
     };
@@ -103,12 +97,11 @@ export class UserController {
   @SkipStatusCheck()
   async disableUser(
     @Req() req: AuthenticateRequest,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     const id: number = req.user.sub;
     const isActive = await this.userService.updateUserStatus(id);
 
     return {
-      status: 'success',
       data: null,
       message: isActive
         ? '계정이 활성화되었습니다.'
@@ -120,12 +113,11 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async deleteUser(
     @Req() req: AuthenticateRequest,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     const id: number = req.user.sub;
     await this.userService.deleteUser(id);
 
     return {
-      status: 'success',
       data: null,
       message: '계정이 삭제되었습니다.',
     };
@@ -136,17 +128,15 @@ export class UserController {
   async getInterest(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<ApiResponse<AlcoholInfoDto[]>> {
+  ): Promise<CustomResponse<AlcoholSummary[]>> {
     const id: number = req.user.sub;
-    const { alcoholInfoDtos, meta } = await this.userService.findInterest(
+    const { alcoholInfo, pagination } = await this.userService.findInterest(
       id,
       query,
     );
     return {
-      status: 'success',
-      data: alcoholInfoDtos,
-      meta: meta,
-      message: '관심있는 술 조회',
+      data: alcoholInfo,
+      pagination,
     };
   }
 
@@ -155,17 +145,15 @@ export class UserController {
   async getMyReview(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<ApiResponse<ReviewDto[]>> {
+  ): Promise<CustomResponse<Review[]>> {
     const id: number = req.user.sub;
-    const { myReviewInfo, meta } = await this.userService.findMyReview(
+    const { myReviewInfo, pagination } = await this.userService.findMyReview(
       id,
       query,
     );
     return {
-      status: 'success',
       data: myReviewInfo,
-      meta: meta,
-      message: '댓글 단 술 조회',
+      pagination,
     };
   }
 }

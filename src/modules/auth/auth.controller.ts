@@ -10,7 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
-import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { CustomResponse } from '../../common/interfaces/api-response.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Request, Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
@@ -137,11 +137,12 @@ export class AuthController {
   }
 
   @Post('email-codes')
-  async sendEmailCode(@Body() emailDto: EmailDto): Promise<ApiResponse<null>> {
+  async sendEmailCode(
+    @Body() emailDto: EmailDto,
+  ): Promise<CustomResponse<null>> {
     await this.authService.sendEmailCode(emailDto);
 
     return {
-      status: 'success',
       data: null,
       message: '인증코드가 메일로 발송되었습니다.',
     };
@@ -150,11 +151,10 @@ export class AuthController {
   @Post('email-codes/verification')
   async verifyEmailCode(
     @Body() verifyCodeDto: VerifyCodeDto,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<CustomResponse<null>> {
     await this.authService.verifyEmailCode(verifyCodeDto);
 
     return {
-      status: 'success',
       data: null,
       message: '인증이 완료되었습니다.',
     };

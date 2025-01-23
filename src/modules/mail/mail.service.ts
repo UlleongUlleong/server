@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Transporter } from 'nodemailer';
 import * as nodemailer from 'nodemailer';
@@ -43,10 +44,10 @@ export class MailService {
   }
 
   async saveCode(email: string, code: string): Promise<void> {
-    const userKey = `users:${email}:auth_code`;
+    const userKey = `verify:code:users:${email}`;
     await this.redis.set(userKey, code, 'EX', 600);
 
-    const attemptKey = `users:${email}:attempt`;
+    const attemptKey = `verify:attempt:users:${email}`;
     const attemptCount = await this.redis.get(attemptKey);
     if (!attemptCount) {
       await this.redis.set(attemptKey, '0', 'EX', 86400);
@@ -61,31 +62,25 @@ export class MailService {
       throw new BadRequestException('인증 코드가 일치하지 않습니다.');
     }
 
-    const userKey = `users:${email}:auth_code`;
-    const attemptKey = `users:${email}:attempt`;
+    const userKey = `verify:code:users:${email}`;
+    const attemptKey = `verify:attempt:users:${email}`;
     await this.redis.del([userKey, attemptKey]);
     await this.allowAccess(email);
   }
 
   async checkCodeExpiration(email: string): Promise<string> {
-    const key = `users:${email}:auth_code`;
+    const key = `verify:code:users:${email}`;
     const code = await this.redis.get(key);
 
     if (!code) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: '인증 코드가 만료됐습니다.',
-        },
-        HttpStatus.NOT_FOUND,
-      );
+      throw new NotFoundException('인증 코드가 만료됐습니다.');
     }
 
     return code;
   }
 
   async checkAttemptCount(email: string): Promise<number> {
-    const key = `users:${email}:attempt`;
+    const key = `verify:attempt:users:${email}`;
     const attemptCount = await this.redis.get(key);
 
     if (Number(attemptCount) >= 10) {
@@ -102,7 +97,7 @@ export class MailService {
   }
 
   async allowAccess(email: string) {
-    const key = `users:${email}:access_allowed`;
+    const key = `verify:complete:users:${email}`;
     await this.redis.set(key, 1, 'EX', 3600);
   }
 }
