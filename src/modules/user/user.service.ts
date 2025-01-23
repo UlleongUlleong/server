@@ -19,8 +19,9 @@ import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { CategoryService } from '../category/category.service';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { QueryAlcoholDto } from './dtos/query.dto';
-import { UserReviewDto } from './dtos/review.dto';
+// import { UserReviewDto } from './dtos/review.dto';
 import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
+import { AlcoholQueryDto } from '../alcohol/dtos/alcohol-query.dto';
 
 @Injectable()
 export class UserService {
@@ -290,10 +291,7 @@ export class UserService {
     });
   }
 
-  async findInterest(
-    id: number,
-    query: QueryAlcoholDto,
-  ): Promise<AlcoholInfoDto[]> {
+  async findInterest(id: number, query: QueryAlcoholDto): Promise<any> {
     const interestAlcoholInfo = await this.prisma.userInterestAlcohol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -320,13 +318,11 @@ export class UserService {
         imageUrl: item.alcohol.imageUrl,
       }),
     );
-    return alcoholInfoDtos;
+    const meta = await this.createCursorMeta(query, alcoholInfoDtos);
+    return { alcoholInfoDtos, meta };
   }
 
-  async findMyReview(
-    id: number,
-    query: QueryAlcoholDto,
-  ): Promise<UserReviewDto[]> {
+  async findMyReview(id: number, query: QueryAlcoholDto): Promise<any> {
     const myReviewInfo = await this.prisma.userReviewAlochol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -345,6 +341,18 @@ export class UserService {
         },
       },
     });
-    return myReviewInfo;
+    const meta = await this.createCursorMeta(query, myReviewInfo);
+    return { myReviewInfo, meta };
+  }
+
+  async createCursorMeta(query: AlcoholQueryDto, list: any): Promise<any> {
+    const last = list[list.length - 1];
+    const nextCursor = last ? last.id : null;
+    const hasNext = list.length === Number(query.limit);
+
+    return {
+      hasNext: hasNext,
+      nextCursor: nextCursor,
+    };
   }
 }

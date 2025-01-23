@@ -26,10 +26,11 @@ export class AlcoholController {
   async findAlcohols(
     @Query() query: AlcoholQueryDto,
   ): Promise<ApiResponse<AlcoholDto[]>> {
-    const info = await this.alcoholService.getAlcohols(query);
+    const { data, meta } = await this.alcoholService.getAlcohols(query);
     return {
       status: 'success',
-      data: info,
+      data: data,
+      meta: meta,
       message: '술 메인페이지',
     };
   }
@@ -39,7 +40,7 @@ export class AlcoholController {
   async findOneAlcohol(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Query('cursor') cursor?: number,
+    @Query() query?: AlcoholQueryDto,
   ): Promise<
     ApiResponse<{
       alcoholInfo: AlcoholDto;
@@ -48,12 +49,13 @@ export class AlcoholController {
     }>
   > {
     const userId: number = req.user.sub;
-    const { alcoholInfo, reviewInfo } =
-      await this.alcoholService.getAlcoholDetail(id, cursor);
+    const { alcoholInfo, meta, reviewInfo } =
+      await this.alcoholService.getAlcoholDetail(id, query);
     const markStatus = await this.alcoholService.findMarkStatus(userId, id);
     return {
       status: 'success',
       data: { alcoholInfo, reviewInfo, markStatus },
+      meta: meta,
       message: '특정 술 조회',
     };
   }
@@ -66,14 +68,10 @@ export class AlcoholController {
     @Body() reviewInfo: CreateReviewDto,
   ): Promise<ApiResponse<{ alcohol: AlcoholDto; reviews: ReviewDto[] }>> {
     const userId: number = req.user.sub;
-    const { alcohol, reviews } = await this.alcoholService.createReview(
-      userId,
-      alcoholId,
-      reviewInfo,
-    );
+    await this.alcoholService.createReview(userId, alcoholId, reviewInfo);
     return {
       status: 'success',
-      data: { alcohol, reviews },
+      data: null,
       message: '리뷰 작성완료',
     };
   }

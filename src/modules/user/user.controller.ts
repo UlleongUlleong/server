@@ -136,10 +136,14 @@ export class UserController {
     @Query() query: QueryAlcoholDto,
   ): Promise<ApiResponse<any>> {
     const id: number = req.user.sub;
-    const interestAlcoholInfo = await this.userService.findInterest(id, query);
+    const { alcoholInfoDtos, meta } = await this.userService.findInterest(
+      id,
+      query,
+    );
     return {
       status: 'success',
-      data: interestAlcoholInfo,
+      data: alcoholInfoDtos,
+      meta: meta,
       message: '관심있는 술 조회',
     };
   }
