@@ -8,10 +8,12 @@ import {
 import { Server, Socket } from 'socket.io';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { ChatService } from './chat.service';
-import { UsePipes, ValidationPipe } from '@nestjs/common';
+import { UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { JoinRoomDto } from './dtos/join-room.dto';
+import { ResponseInterceptor } from 'src/common/interceptors/response.interceptor';
 
 @WebSocketGateway({ namespace: 'chat' })
+@UseInterceptors(ResponseInterceptor)
 export class ChatGateway {
   constructor(private chatService: ChatService) {}
 
@@ -134,7 +136,6 @@ export class ChatGateway {
     @MessageBody() message: string,
   ) {
     try {
-      console.log(message);
       const userId = await this.chatService.findUserByClientId(client.id);
       const roomId = await this.chatService.getRoomIdByUserId(userId);
       if (!roomId) {

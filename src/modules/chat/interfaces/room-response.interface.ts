@@ -1,14 +1,7 @@
-type offsetMeta = {
-  total: number;
-  pageSize: number;
-  page: number;
-  totalPages: number;
-};
-
-type cursorMeta = {
-  hasNext: boolean;
-  nextCursor: number;
-};
+import {
+  CursorPagination,
+  OffsetPagination,
+} from '../../../common/interfaces/pagination.interface';
 
 export interface RoomResponse {
   id: number;
@@ -21,10 +14,10 @@ export interface RoomResponse {
 
 export interface RoomResponseByOffset {
   data: RoomResponse[];
-  meta: offsetMeta;
+  pagination: OffsetPagination;
 }
 
 export interface RoomResponseByCursor {
   data: RoomResponse[];
-  meta: cursorMeta;
+  pagination: CursorPagination;
 }

@@ -6,14 +6,14 @@ import {
   NotFoundException,
   OnApplicationShutdown,
   UnauthorizedException,
-  OnModuleInit,
+  Logger,
 } from '@nestjs/common';
-import { PrismaService } from 'src/common/modules/prisma/prisma.service';
+import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { CategoryService } from '../category/category.service';
 import { Prisma } from '@prisma/client';
 import { ThemeService } from './theme.service';
-import { UserPayload } from 'src/common/interfaces/user-payload.interface';
+import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { UserService } from '../user/user.service';
@@ -24,9 +24,15 @@ import {
   RoomResponseByOffset,
 } from './interfaces/room-response.interface';
 import { FindByOffsetDto } from './dtos/find-by-offset.dto';
+import {
+  CursorPagination,
+  OffsetPagination,
+} from '../../common/interfaces/pagination.interface';
 
 @Injectable()
-export class ChatService implements OnModuleInit, OnApplicationShutdown {
+export class ChatService implements OnApplicationShutdown {
+  private readonly logger = new Logger(ChatService.name);
+
   constructor(
     @Inject('REDIS_CLIENT') private redis: Redis,
     private prisma: PrismaService,
@@ -35,16 +41,16 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     private jwtService: JwtService,
     private userService: UserService,
   ) {}
-  async onModuleInit() {
-    console.log('배치작업');
-  }
-  @Cron(CronExpression.EVERY_5_SECONDS)
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleBatchSave() {
     await this.batchSaveMessagesToDB();
   }
   async onApplicationShutdown(signal?: string) {
-    console.log(`애플리케이션이 종료되었습니다.: ${signal}`);
     await this.deleteAllConnections();
+    this.logger.log(
+      `All connected chat client information has been deleted from Redis.: ${signal}`,
+    );
   }
 
   async validateToken(token: string): Promise<UserPayload> {
@@ -217,7 +223,6 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
       timestamp: new Date().toISOString(),
     };
     await this.redis.lpush(key, JSON.stringify(messageData));
-    console.log(await this.redis.lrange(key, 0, -1));
   }
   async getRoomIdByUserId(userId: number): Promise<number | null> {
     const participant = await this.prisma.chatParticipant.findUnique({
@@ -228,6 +233,8 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     return participant?.roomId || null;
   }
   async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
+    this.logger.log('Batch insert chat messages into the database');
+
     const key = `chat:messages`;
     const messages = [];
     for (let i = 0; i < batchSize; i++) {
@@ -238,7 +245,6 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     }
 
     if (messages.length === 0) return;
-    console.log(1, messages);
     const chatMessages = messages.map((message) => ({
       userId: message.userId,
       roomId: message.roomId,
@@ -262,7 +268,7 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
       keyword,
     } = findRoomDto;
 
-    const [total, rooms] = await Promise.all([
+    const [totalItems, rooms] = await Promise.all([
       await this.prisma.chatRoom.count({
         where: this.getWhereCondition(keyword, alcoholCategory, moodCategory),
       }),
@@ -299,10 +305,15 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
       participants: room._count.participants,
     }));
 
-    const totalPages = Math.ceil(total / pageSize);
-    const meta = { total, pageSize, page, totalPages };
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const pagination: OffsetPagination = {
+      totalItems,
+      itemsPerPage: pageSize,
+      currentPage: page,
+      totalPages,
+    };
 
-    return { data, meta };
+    return { data, pagination };
   }
 
   async findRoomsByCursor(
@@ -352,9 +363,9 @@ export class ChatService implements OnModuleInit, OnApplicationShutdown {
     }));
 
     const data = hasNext ? formattedData?.slice(0, -1) : formattedData;
-    const meta = { hasNext, nextCursor };
+    const pagination: CursorPagination = { hasNext, nextCursor };
 
-    return { data, meta };
+    return { data, pagination };
   }
 
   getOrderByCondition(sort: string): object {
