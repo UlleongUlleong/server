@@ -235,11 +235,13 @@ export class AlcoholService {
       await this.prisma.userInterestAlcohol.delete({
         where: { userId_alcoholId: { userId, alcoholId } },
       });
+      await this.subMark(alcoholId);
       return false;
     }
     await this.prisma.userInterestAlcohol.create({
       data: { userId, alcoholId },
     });
+    await this.addMark(alcoholId);
     return true;
   }
 
@@ -251,5 +253,38 @@ export class AlcoholService {
       return true;
     }
     return false;
+  }
+
+  async addMark(alcoholId: number): Promise<void> {
+    const alcoholInfo = await this.prisma.alcohol.findUnique({
+      where: { id: alcoholId },
+      select: {
+        interestCount: true,
+      },
+    });
+    console.log(alcoholInfo.interestCount);
+    await this.prisma.alcohol.update({
+      where: { id: alcoholId },
+      data: {
+        interestCount: alcoholInfo.interestCount + 1,
+      },
+    });
+    return;
+  }
+
+  async subMark(alcoholId: number): Promise<void> {
+    const alcoholInfo = await this.prisma.alcohol.findUnique({
+      where: { id: alcoholId },
+      select: {
+        interestCount: true,
+      },
+    });
+    await this.prisma.alcohol.update({
+      where: { id: alcoholId },
+      data: {
+        interestCount: alcoholInfo.interestCount - 1,
+      },
+    });
+    return;
   }
 }
