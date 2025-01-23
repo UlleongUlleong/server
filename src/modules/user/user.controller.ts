@@ -21,6 +21,8 @@ import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.int
 import { ProfileDetail } from './interfaces/profile.interface';
 import { SkipStatusCheck } from 'src/common/decorators/skip-status-check.decorator';
 import { QueryAlcoholDto } from './dtos/query.dto';
+import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
+import { ReviewDto } from '../alcohol/dtos/review.dto';
 
 @Controller('users')
 export class UserController {
@@ -134,12 +136,16 @@ export class UserController {
   async getInterest(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<ApiResponse<any>> {
+  ): Promise<ApiResponse<AlcoholInfoDto[]>> {
     const id: number = req.user.sub;
-    const interestAlcoholInfo = await this.userService.findInterest(id, query);
+    const { alcoholInfoDtos, meta } = await this.userService.findInterest(
+      id,
+      query,
+    );
     return {
       status: 'success',
-      data: interestAlcoholInfo,
+      data: alcoholInfoDtos,
+      meta: meta,
       message: '관심있는 술 조회',
     };
   }
@@ -149,12 +155,16 @@ export class UserController {
   async getMyReview(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<ApiResponse<any>> {
+  ): Promise<ApiResponse<ReviewDto[]>> {
     const id: number = req.user.sub;
-    const myReviewInfo = await this.userService.findMyReview(id, query);
+    const { myReviewInfo, meta } = await this.userService.findMyReview(
+      id,
+      query,
+    );
     return {
       status: 'success',
       data: myReviewInfo,
+      meta: meta,
       message: '댓글 단 술 조회',
     };
   }

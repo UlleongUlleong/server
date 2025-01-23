@@ -19,8 +19,12 @@ import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { CategoryService } from '../category/category.service';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { QueryAlcoholDto } from './dtos/query.dto';
-import { UserReviewDto } from './dtos/review.dto';
+// import { UserReviewDto } from './dtos/review.dto';
 import { AlcoholInfoDto } from './dtos/alcoholInfo.dto';
+import { AlcoholQueryDto } from '../alcohol/dtos/alcohol-query.dto';
+import { ResponseInterestDto } from './dtos/response-interest.dto';
+import { ResPonseReviewDto } from './dtos/response-review.dto';
+import { ResPonseCursorDto } from '../alcohol/dtos/response-cursor.dto';
 
 @Injectable()
 export class UserService {
@@ -293,7 +297,7 @@ export class UserService {
   async findInterest(
     id: number,
     query: QueryAlcoholDto,
-  ): Promise<AlcoholInfoDto[]> {
+  ): Promise<ResponseInterestDto> {
     const interestAlcoholInfo = await this.prisma.userInterestAlcohol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -320,13 +324,14 @@ export class UserService {
         imageUrl: item.alcohol.imageUrl,
       }),
     );
-    return alcoholInfoDtos;
+    const meta = await this.createCursorMeta(query, alcoholInfoDtos);
+    return { alcoholInfoDtos, meta };
   }
 
   async findMyReview(
     id: number,
     query: QueryAlcoholDto,
-  ): Promise<UserReviewDto[]> {
+  ): Promise<ResPonseReviewDto> {
     const myReviewInfo = await this.prisma.userReviewAlochol.findMany({
       where: { userId: id },
       take: query.limit ? Number(query.limit) : 5,
@@ -345,6 +350,21 @@ export class UserService {
         },
       },
     });
-    return myReviewInfo;
+    const meta = await this.createCursorMeta(query, myReviewInfo);
+    return { myReviewInfo, meta };
+  }
+
+  async createCursorMeta(
+    query: AlcoholQueryDto,
+    list: { id: number }[],
+  ): Promise<ResPonseCursorDto> {
+    const last = list[list.length - 1];
+    const nextCursor = last ? last.id : null;
+    const hasNext = list.length === Number(query.limit);
+
+    return {
+      hasNext: hasNext,
+      nextCursor: nextCursor,
+    };
   }
 }
