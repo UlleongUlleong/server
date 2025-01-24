@@ -9,7 +9,11 @@ import {
 import { Transporter } from 'nodemailer';
 import * as nodemailer from 'nodemailer';
 import { emailCodeTemplate } from './mail.template';
-import { generateRandomCode } from 'src/common/utils/random-generator.util';
+import { emailPasswordTemplate } from './mail-password.template';
+import {
+  generateRandomCode,
+  generateRandomPassword,
+} from 'src/common/utils/random-generator.util';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -99,5 +103,19 @@ export class MailService {
   async allowAccess(email: string) {
     const key = `verify:complete:users:${email}`;
     await this.redis.set(key, 1, 'EX', 3600);
+  }
+
+  async sendPassword(email: string): Promise<string> {
+    const temporaryPassword = generateRandomPassword();
+
+    const options: nodemailer.SendMailOptions = {
+      from: `"술렁술렁" <${process.env.MAIL_FROM}>`,
+      to: email,
+      subject: '[술렁술렁] 임시 비밀번호 안내',
+      html: emailPasswordTemplate(temporaryPassword),
+    };
+
+    await this.transporter.sendMail(options);
+    return temporaryPassword;
   }
 }

@@ -13,7 +13,7 @@ export class CategoryService {
   }
 
   async getMoodCategory(): Promise<object> {
-    const moodCategory = await this.prisma.alcoholCategory.findMany({
+    const moodCategory = await this.prisma.moodCategory.findMany({
       select: { id: true, name: true },
     });
     return moodCategory;

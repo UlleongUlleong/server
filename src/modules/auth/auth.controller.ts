@@ -159,4 +159,16 @@ export class AuthController {
       message: '인증이 완료되었습니다.',
     };
   }
+
+  @Post('password/email-verification')
+  async sendTemporaryPassword(
+    @Body() emailDto: EmailDto,
+  ): Promise<CustomResponse<null>> {
+    await this.authService.sendTemporaryPassword(emailDto);
+
+    return {
+      data: null,
+      message: '임시 비밀번호가 발송되었습니다',
+    };
+  }
 }

@@ -19,6 +19,7 @@ import { LocalLoginDto } from './dtos/local-login.dto';
 import { generateRandomCode } from 'src/common/utils/random-generator.util';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
+import { PrismaService } from '../../common/modules/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private userService: UserService,
+    private prisma: PrismaService,
   ) {}
 
   async isPasswordMatch(
@@ -147,5 +149,19 @@ export class AuthService {
     const payload: UserPayload = await this.jwtService.verifyAsync(token);
 
     return payload;
+  }
+
+  async sendTemporaryPassword(emailDto: EmailDto): Promise<void> {
+    const { email } = emailDto;
+    const temporaryPassword = await this.mailService.sendPassword(email);
+    const hashPassword = await this.hashPassword(temporaryPassword);
+    await this.updatePassword(email, hashPassword);
+  }
+
+  async updatePassword(email: string, password: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { email: email },
+      data: { password: password },
+    });
   }
 }

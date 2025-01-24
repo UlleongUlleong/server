@@ -23,6 +23,7 @@ import { AlcoholQueryDto } from '../alcohol/dtos/alcohol-query.dto';
 import { InterestResponse } from './interfaces/interest-response.interface';
 import { ReviewResponse } from './interfaces/review-response.interface';
 import { CursorPagination } from 'src/common/interfaces/pagination.interface';
+import { UpdatePasswordDto } from './dtos/update-password.dto';
 
 @Injectable()
 export class UserService {
@@ -350,5 +351,25 @@ export class UserService {
       hasNext: hasNext,
       nextCursor: nextCursor,
     };
+  }
+
+  async updatePassword(
+    userId: number,
+    updatePasswordDto: UpdatePasswordDto,
+  ): Promise<void> {
+    const { password, confirmPassword } = updatePasswordDto;
+    if (!this.comparePassword(password, confirmPassword)) {
+      throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
+    }
+    const hashPassword = await this.hashPassword(password);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashPassword },
+    });
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    const saltOfRounds = 10;
+    return await bcrypt.hash(password, saltOfRounds);
   }
 }
