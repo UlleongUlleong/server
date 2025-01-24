@@ -163,7 +163,7 @@ export class AuthController {
     };
   }
 
-  @Post('password/email-verification')
+  @Post('email-password')
   async sendTemporaryPassword(
     @Body() emailDto: EmailDto,
   ): Promise<CustomResponse<null>> {
