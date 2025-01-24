@@ -155,7 +155,7 @@ export class AuthService {
   async sendTemporaryPassword(emailDto: EmailDto): Promise<void> {
     const { email } = emailDto;
     const userInfo: User = await this.userService.findUserByEmail(email);
-    if (!(userInfo.providerId === 1)) {
+    if (userInfo.providerId !== 1) {
       throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
     }
     const temporaryPassword = await this.mailService.sendPassword(email);
