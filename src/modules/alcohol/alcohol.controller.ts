@@ -35,21 +35,29 @@ export class AlcoholController {
     };
   }
 
-  @Get(':id')
+  @Get(':id/reviews')
   async findOneAlcohol(
     @Param('id', ParseIntPipe) id: number,
     @Query() query?: AlcoholQueryDto,
-  ): Promise<
-    CustomResponse<{
-      alcoholInfo: Alcohol;
-      reviewInfo: Review[];
-    }>
-  > {
-    const { alcoholInfo, pagination, reviewInfo } =
-      await this.alcoholService.getAlcoholDetail(id, query);
+  ): Promise<CustomResponse<Review[]>> {
+    const { pagination, reviewInfo } = await this.alcoholService.getReview(
+      id,
+      query,
+    );
     return {
-      data: { alcoholInfo, reviewInfo },
+      data: reviewInfo,
       pagination,
+    };
+  }
+
+  @Get(':id')
+  async alcoholDetail(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<CustomResponse<Alcohol>> {
+    const alcoholInfo = await this.alcoholService.findAlcoholById(id);
+    return {
+      data: alcoholInfo,
+      message: '술 상세조회',
     };
   }
 
