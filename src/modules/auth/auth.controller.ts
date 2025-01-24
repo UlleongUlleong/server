@@ -12,7 +12,7 @@ import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { CustomResponse } from '../../common/interfaces/api-response.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 
@@ -25,42 +25,13 @@ export class AuthController {
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
   ): Promise<Response<null>> {
-    const { accessToken, refreshToken } =
-      await this.authService.login(loginDto);
+    const accessToken = await this.authService.login(loginDto);
 
     res.header('Authorization', `Bearer ${accessToken}`);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      // sameSite: 'strict',
-    });
-
     return res.status(200).json({
       status: 'success',
       data: null,
       message: '로그인 성공',
-    });
-  }
-
-  @Post('refresh-token')
-  async refreshToken(
-    @Req() req: Request,
-    @Res() res: Response,
-  ): Promise<Response<null>> {
-    const token = req.cookies['refresh_token'];
-    const { accessToken, refreshToken } =
-      await this.authService.refreshToken(token);
-    res.header('Authorization', `Bearer ${accessToken}`);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      // sameSite: 'strict',
-    });
-
-    return res.status(201).json({
-      status: 'success',
-      data: null,
-      message: '토큰 재발급',
     });
   }
 
@@ -76,15 +47,8 @@ export class AuthController {
   ): Promise<void> {
     const id: number = req.user.sub;
     const accessToken = await this.authService.createAccessToken(id);
-    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      // sameSite: 'strict',
-    });
-
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
@@ -100,15 +64,8 @@ export class AuthController {
   ): Promise<void> {
     const id: number = req.user.sub;
     const accessToken = await this.authService.createAccessToken(id);
-    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      // sameSite: 'strict',
-    });
-
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
@@ -124,15 +81,8 @@ export class AuthController {
   ): Promise<void> {
     const id: number = req.user.sub;
     const accessToken = await this.authService.createAccessToken(id);
-    const refreshToken = await this.authService.createRefreshToken(id);
 
     res.header('Authorization', `Bearer ${accessToken}`);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      // sameSite: 'strict',
-    });
-
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
