@@ -8,13 +8,25 @@ import {
 import { Server, Socket } from 'socket.io';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { ChatService } from './chat.service';
-import { UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Logger,
+  UseFilters,
+  UseInterceptors,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { JoinRoomDto } from './dtos/join-room.dto';
-import { WSExceptionFilter } from 'src/common/filters/ws-exception.filter';
+import { WsExceptionFilter } from 'src/common/filters/ws-exception.filter';
+import { WsResponseInterceptor } from 'src/common/interceptors/ws-response.interceptor';
+import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
+import { WsContent } from 'src/common/interfaces/ws-response.interface';
 
 @WebSocketGateway({ namespace: 'chat' })
-@UseFilters(WSExceptionFilter)
+@UseFilters(WsExceptionFilter)
+@UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
 export class ChatGateway {
+  private readonly logger = new Logger(ChatGateway.name);
+
   constructor(private chatService: ChatService) {}
 
   @WebSocketServer() server: Server;
@@ -28,6 +40,9 @@ export class ChatGateway {
       const clientId = client.id;
       const userId = payload.sub;
       await this.chatService.createConnection(clientId, userId);
+      this.logger.log(
+        `Socket client(${clientId}) has connected to the server.`,
+      );
     } catch {
       client.disconnect();
     }
@@ -38,6 +53,9 @@ export class ChatGateway {
 
     await this.handleLeaveRoom(client);
     await this.chatService.deleteConnection(clientId);
+    this.logger.log(
+      `Socket client(${clientId}) has disconnected from the server.`,
+    );
   }
 
   @SubscribeMessage('create_room')
@@ -45,7 +63,7 @@ export class ChatGateway {
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
-  ) {
+  ): Promise<WsContent<null>> {
     const userId = await this.chatService.findUserByClientId(client.id);
     const room = await this.chatService.createChatRoom(userId, createRoomDto);
 
@@ -53,9 +71,7 @@ export class ChatGateway {
 
     return {
       event: 'room_created',
-      data: {
-        message: '채팅방이 생성되었습니다.',
-      },
+      data: null,
     };
   }
 
@@ -64,7 +80,7 @@ export class ChatGateway {
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
-  ) {
+  ): Promise<WsContent<null>> {
     const clientId = client.id;
     const roomId = joinRoomDto.roomId;
     const userId = await this.chatService.findUserByClientId(clientId);
@@ -75,14 +91,14 @@ export class ChatGateway {
 
     return {
       event: 'room_joined',
-      data: {
-        message: '채팅방에 참가하였습니다.',
-      },
+      data: null,
     };
   }
 
   @SubscribeMessage('leave_room')
-  async handleLeaveRoom(@ConnectedSocket() client: Socket) {
+  async handleLeaveRoom(
+    @ConnectedSocket() client: Socket,
+  ): Promise<WsContent<null>> {
     const clientId = client.id;
     const userId = await this.chatService.findUserByClientId(clientId);
     const roomId = await this.chatService.deleteParticipant(userId);
@@ -94,9 +110,7 @@ export class ChatGateway {
 
     return {
       event: 'room_left',
-      data: {
-        message: '채팅방을 떠났습니다.',
-      },
+      data: null,
     };
   }
 
@@ -104,13 +118,13 @@ export class ChatGateway {
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody() message: string,
-  ) {
+  ): Promise<WsContent<null>> {
     const userId = await this.chatService.findUserByClientId(client.id);
     const roomId = await this.chatService.getRoomIdByUserId(userId);
     if (!roomId) {
       return {
         event: 'error',
-        data: { error: '사용자가 속한 채팅방을 찾을 수 없습니다.' },
+        data: null,
       };
     }
     await this.chatService.saveMessageToRedis(roomId, userId, message);
@@ -123,7 +137,7 @@ export class ChatGateway {
 
     return {
       event: 'message_send',
-      data: { message: '메시지가 전송' },
+      data: null,
     };
   }
 }

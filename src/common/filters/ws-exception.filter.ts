@@ -4,8 +4,8 @@ import { Socket } from 'socket.io';
 import { ValidationError } from 'class-validator';
 
 @Catch()
-export class WSExceptionFilter {
-  private readonly logger = new Logger(WSExceptionFilter.name);
+export class WsExceptionFilter {
+  private readonly logger = new Logger(WsExceptionFilter.name);
 
   catch(exception: Error, host: ArgumentsHost) {
     const ctx = host.switchToWs();
@@ -22,7 +22,7 @@ export class WSExceptionFilter {
       message = exceptionResponse.message || message;
       error = exceptionResponse.error || 'Bad Request';
 
-      this.logger.error(`ID: ${clientID} - ${error}`);
+      this.logger.error(`${clientID} - ${error}`);
     } else if (
       Array.isArray(exception) &&
       exception.every((error) => error instanceof ValidationError)
@@ -30,9 +30,9 @@ export class WSExceptionFilter {
       message = this.combineValidationException(exception);
       error = 'Validation Error';
 
-      this.logger.error(`ID: ${clientID} - ${error}`);
+      this.logger.error(`${clientID} - ${error}`);
     } else {
-      this.logger.error(`ID: ${clientID} - ${exception.stack}`);
+      this.logger.error(`${clientID} - ${exception.stack}`);
     }
 
     client.emit('error', { message, error });

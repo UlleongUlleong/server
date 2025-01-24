@@ -6,36 +6,36 @@ import {
 } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
 import {
-  ApiResponse,
-  CustomResponse,
-} from '../interfaces/api-response.interface';
+  HttpResponse,
+  HttpContent,
+} from '../interfaces/http-response.interface';
 
 @Injectable()
-export class ResponseInterceptor<T>
-  implements NestInterceptor<T, ApiResponse<T>>
+export class HttpResponseInterceptor<T>
+  implements NestInterceptor<T, HttpResponse<T>>
 {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<ApiResponse<T>> {
+  ): Observable<HttpResponse<T>> {
     const response = context.switchToHttp().getResponse();
-    const isHttp = context.getType() === 'http';
+    const request = context.switchToHttp().getRequest();
 
     return next.handle().pipe(
-      map((result: CustomResponse<T>) => {
-        const apiResponse: ApiResponse<T> = {
+      map((result: HttpContent<T>) => {
+        if (response.headersSent) {
+          return;
+        }
+
+        const apiResponse: HttpResponse<T> = {
           statusCode: response.statusCode || 200,
           message: result.message || '요청이 성공적으로 처리되었습니다.',
           data: result.data || null,
+          path: request.url,
         };
 
         if (result?.pagination) {
           apiResponse.pagination = result.pagination;
-        }
-
-        if (isHttp) {
-          const request = context.switchToHttp().getRequest();
-          apiResponse['path'] = request.url;
         }
 
         return apiResponse;
