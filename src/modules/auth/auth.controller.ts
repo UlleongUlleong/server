@@ -6,6 +6,7 @@ import {
   Res,
   UseGuards,
   Req,
+  Put,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -15,6 +16,8 @@ import { LocalLoginDto } from './dtos/local-login.dto';
 import { Request, Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { UpdatePasswordDto } from '../user/dtos/update-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -170,6 +173,20 @@ export class AuthController {
     return {
       data: null,
       message: '임시 비밀번호가 발송되었습니다',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('password')
+  async updatePassword(
+    @Req() req: AuthenticateRequest,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ): Promise<CustomResponse<null>> {
+    const id: number = req.user.sub;
+    await this.authService.resetPassword(id, updatePasswordDto);
+    return {
+      data: null,
+      message: '비밀번호가 변경되었습니다.',
     };
   }
 }

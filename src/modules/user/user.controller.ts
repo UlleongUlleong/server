@@ -23,7 +23,6 @@ import { SkipStatusCheck } from 'src/common/decorators/skip-status-check.decorat
 import { QueryAlcoholDto } from './dtos/query.dto';
 import { Review } from '../alcohol/inerfaces/review.interface';
 import { AlcoholSummary } from './interfaces/alcohol-summary.interface';
-import { UpdatePasswordDto } from './dtos/update-password.dto';
 
 @Controller('users')
 export class UserController {
@@ -155,20 +154,6 @@ export class UserController {
     return {
       data: myReviewInfo,
       pagination,
-    };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Put('password/update')
-  async updatePassword(
-    @Req() req: AuthenticateRequest,
-    @Body() updatePasswordDto: UpdatePasswordDto,
-  ): Promise<CustomResponse<null>> {
-    const id: number = req.user.sub;
-    await this.userService.updatePassword(id, updatePasswordDto);
-    return {
-      data: null,
-      message: '비밀번호가 변경되었습니다.',
     };
   }
 }
