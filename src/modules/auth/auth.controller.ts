@@ -164,6 +164,7 @@ export class AuthController {
   async sendTemporaryPassword(
     @Body() emailDto: EmailDto,
   ): Promise<CustomResponse<null>> {
+    console.log(emailDto);
     await this.authService.sendTemporaryPassword(emailDto);
 
     return {

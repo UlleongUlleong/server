@@ -20,6 +20,7 @@ import { generateRandomCode } from 'src/common/utils/random-generator.util';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -153,6 +154,10 @@ export class AuthService {
 
   async sendTemporaryPassword(emailDto: EmailDto): Promise<void> {
     const { email } = emailDto;
+    const userInfo: User = await this.userService.findUserByEmail(email);
+    if (!(userInfo.providerId === 1)) {
+      throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
+    }
     const temporaryPassword = await this.mailService.sendPassword(email);
     const hashPassword = await this.hashPassword(temporaryPassword);
     await this.updatePassword(email, hashPassword);

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -358,6 +359,10 @@ export class UserService {
     updatePasswordDto: UpdatePasswordDto,
   ): Promise<void> {
     const { password, confirmPassword } = updatePasswordDto;
+    const userInfo: User = await this.findUserById(userId);
+    if (!(userInfo.providerId === 1)) {
+      throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
+    }
     if (!this.comparePassword(password, confirmPassword)) {
       throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
     }
