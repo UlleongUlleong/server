@@ -1,28 +1,73 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE `Provider` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(10) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-  - You are about to drop the `Token` table. If the table is not empty, all the data it contains will be lost.
-  - A unique constraint covering the columns `[nickname]` on the table `Profile` will be added. If there are existing duplicate values, this will fail.
+    UNIQUE INDEX `Provider_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-*/
--- DropForeignKey
-ALTER TABLE `Profile` DROP FOREIGN KEY `Profile_userId_fkey`;
+-- CreateTable
+CREATE TABLE `User` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `providerId` INTEGER NOT NULL,
+    `email` VARCHAR(255) NOT NULL,
+    `password` VARCHAR(100) NULL,
+    `isActive` BOOLEAN NOT NULL DEFAULT true,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `deletedAt` DATETIME(3) NULL,
 
--- DropForeignKey
-ALTER TABLE `Token` DROP FOREIGN KEY `Token_userId_fkey`;
+    UNIQUE INDEX `User_id_key`(`id`),
+    UNIQUE INDEX `User_email_key`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- DropForeignKey
-ALTER TABLE `UserAlcoholCategory` DROP FOREIGN KEY `UserAlcoholCategory_userId_fkey`;
+-- CreateTable
+CREATE TABLE `Profile` (
+    `userId` INTEGER NOT NULL,
+    `nickname` VARCHAR(30) NOT NULL,
+    `imageUrl` VARCHAR(255) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
--- DropForeignKey
-ALTER TABLE `UserMoodCategory` DROP FOREIGN KEY `UserMoodCategory_userId_fkey`;
+    UNIQUE INDEX `Profile_nickname_key`(`nickname`),
+    PRIMARY KEY (`userId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- AlterTable
-ALTER TABLE `User` ADD COLUMN `isActive` BOOLEAN NOT NULL DEFAULT true,
-    MODIFY `password` VARCHAR(100) NULL;
+-- CreateTable
+CREATE TABLE `MoodCategory` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(10) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
--- DropTable
-DROP TABLE `Token`;
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `AlcoholCategory` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(10) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `UserMoodCategory` (
+    `userId` INTEGER NOT NULL,
+    `moodCategoryId` INTEGER NOT NULL,
+
+    PRIMARY KEY (`userId`, `moodCategoryId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `UserAlcoholCategory` (
+    `userId` INTEGER NOT NULL,
+    `alcoholCategoryId` INTEGER NOT NULL,
+
+    PRIMARY KEY (`userId`, `alcoholCategoryId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
 CREATE TABLE `Alcohol` (
@@ -60,6 +105,7 @@ CREATE TABLE `UserReviewAlochol` (
 CREATE TABLE `UserInterestAlcohol` (
     `userId` INTEGER NOT NULL,
     `alcoholId` INTEGER NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (`userId`, `alcoholId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -125,8 +171,8 @@ CREATE TABLE `ChatLog` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateIndex
-CREATE UNIQUE INDEX `Profile_nickname_key` ON `Profile`(`nickname`);
+-- AddForeignKey
+ALTER TABLE `User` ADD CONSTRAINT `User_providerId_fkey` FOREIGN KEY (`providerId`) REFERENCES `Provider`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Profile` ADD CONSTRAINT `Profile_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -135,7 +181,13 @@ ALTER TABLE `Profile` ADD CONSTRAINT `Profile_userId_fkey` FOREIGN KEY (`userId`
 ALTER TABLE `UserMoodCategory` ADD CONSTRAINT `UserMoodCategory_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `UserMoodCategory` ADD CONSTRAINT `UserMoodCategory_moodCategoryId_fkey` FOREIGN KEY (`moodCategoryId`) REFERENCES `MoodCategory`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `UserAlcoholCategory` ADD CONSTRAINT `UserAlcoholCategory_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `UserAlcoholCategory` ADD CONSTRAINT `UserAlcoholCategory_alcoholCategoryId_fkey` FOREIGN KEY (`alcoholCategoryId`) REFERENCES `AlcoholCategory`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Alcohol` ADD CONSTRAINT `Alcohol_alcoholCategoryId_fkey` FOREIGN KEY (`alcoholCategoryId`) REFERENCES `AlcoholCategory`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
