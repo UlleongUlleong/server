@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -12,7 +11,6 @@ import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-// import { JwtToken } from './interfaces/jwt-token.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { LocalLoginDto } from './dtos/local-login.dto';
@@ -121,7 +119,7 @@ export class AuthService {
     const id = payload.sub;
     const storedToken = await this.redis.get(`refresh_token:users:${token}`);
     if (!storedToken) {
-      throw new BadRequestException('재로그인 해주세요');
+      throw new UnauthorizedException('재로그인 해주세요');
     }
     const newToken = await this.createAccessToken(id);
     await this.createRefreshToken(id, newToken);
@@ -149,8 +147,7 @@ export class AuthService {
     try {
       await this.jwtService.verify(token);
       return true;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (err) {
+    } catch {
       return false;
     }
   }
