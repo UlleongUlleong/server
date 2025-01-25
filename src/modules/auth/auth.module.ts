@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
@@ -9,6 +9,7 @@ import { NaverStrategy } from './strategies/naver.strategy';
 import { KakaoStrategy } from './strategies/kakao.strategy';
 import { MailModule } from '../mail/mail.module';
 import { UserModule } from '../user/user.module';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { UserModule } from '../user/user.module';
       signOptions: { expiresIn: '1h' },
     }),
     MailModule,
-    UserModule,
+    forwardRef(() => UserModule),
   ],
   providers: [
     AuthService,
@@ -26,7 +27,9 @@ import { UserModule } from '../user/user.module';
     NaverStrategy,
     KakaoStrategy,
     JwtStrategy,
+    JwtAuthGuard,
   ],
   controllers: [AuthController],
+  exports: [AuthService],
 })
 export class AuthModule {}

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -12,7 +11,6 @@ import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-import { JwtToken } from './interfaces/jwt-token.interface';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { LocalLoginDto } from './dtos/local-login.dto';
@@ -44,18 +42,18 @@ export class AuthService {
     return this.jwtService.sign({ sub: id }, { expiresIn: '1h' });
   }
 
-  async createRefreshToken(id: number): Promise<string> {
+  async createRefreshToken(id: number, accessToken: string): Promise<string> {
     const refreshToken = this.jwtService.sign({ sub: id }, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
-    const key = `refresh_token:users:${id}`;
+    const key = `refresh_token:users:${accessToken}`;
 
     await this.redis.set(key, refreshToken);
     await this.redis.expireat(key, exp);
 
-    return refreshToken;
+    return;
   }
 
-  async login(loginDto: LocalLoginDto): Promise<JwtToken> {
+  async login(loginDto: LocalLoginDto): Promise<string> {
     const { email, password } = loginDto;
     const user = await this.userService.findUserByEmail(email);
     if (!user) {
@@ -71,9 +69,9 @@ export class AuthService {
 
     await this.userService.restoreUser(user.id);
     const accessToken = await this.createAccessToken(user.id);
-    const refreshToken = await this.createRefreshToken(user.id);
+    await this.createRefreshToken(user.id, accessToken);
 
-    return { accessToken, refreshToken };
+    return accessToken;
   }
 
   async createOAuthUser(oauthUserDto: OAuthUserDto): Promise<UserPayload> {
@@ -117,24 +115,20 @@ export class AuthService {
     return await bcrypt.hash(password, saltOfRounds);
   }
 
-  async refreshToken(token: string): Promise<JwtToken> {
+  async refreshAccessToken(token: string): Promise<string> {
     if (!token) {
       throw new UnauthorizedException('유효하지 않은 토큰입니다.');
     }
-
-    const payload: UserPayload = this.jwtService.verify(token);
+    const payload: UserPayload = this.jwtService.decode(token);
     const id = payload.sub;
-    const storedToken = await this.redis.get(`refresh_token:users:${id}`);
+    const storedToken = await this.redis.get(`refresh_token:users:${token}`);
     if (!storedToken) {
-      throw new BadRequestException('토큰이 만료되었습니다.');
+      throw new UnauthorizedException('재로그인 해주세요');
     }
-    if (token !== storedToken) {
-      throw new UnauthorizedException('토큰이 일치하지 않습니다.');
-    }
-
-    const accessToken = await this.createAccessToken(id);
-    const refreshToken = await this.createRefreshToken(id);
-    return { accessToken, refreshToken };
+    const newToken = await this.createAccessToken(id);
+    await this.createRefreshToken(id, newToken);
+    await this.redis.del(token);
+    return newToken;
   }
 
   async sendEmailCode(emailDto: EmailDto) {
@@ -153,6 +147,19 @@ export class AuthService {
     return payload;
   }
 
+  async verifyToken(token: string): Promise<boolean> {
+    try {
+      await this.jwtService.verify(token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async decodeToken(token: string): Promise<UserPayload> {
+    const user: UserPayload = await this.jwtService.decode(token);
+    return user;
+    
   async sendTemporaryPassword(emailDto: EmailDto): Promise<void> {
     const { email } = emailDto;
     const userInfo: User = await this.userService.findUserByEmail(email);
