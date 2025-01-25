@@ -1,6 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
@@ -14,7 +17,6 @@ import { NicknameDto } from './dtos/nickname.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { ProfileDetail } from './interfaces/profile.interface';
-import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { CategoryService } from '../category/category.service';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { QueryAlcoholDto } from './dtos/query.dto';
@@ -23,6 +25,9 @@ import { AlcoholQueryDto } from '../alcohol/dtos/alcohol-query.dto';
 import { InterestResponse } from './interfaces/interest-response.interface';
 import { ReviewResponse } from './interfaces/review-response.interface';
 import { CursorPagination } from 'src/common/interfaces/pagination.interface';
+import { UpdatePasswordDto } from './dtos/update-password.dto';
+import { OAuthUserDto } from './dtos/oauth-user.dto';
+import { generateRandomCode } from 'src/common/utils/random-generator.util';
 
 @Injectable()
 export class UserService {
@@ -189,6 +194,12 @@ export class UserService {
     await this.redis.del(redisKey);
   }
 
+  async createOAuthUser(oauthUserDto: OAuthUserDto): Promise<User> {
+    const { email, provider, nickname } = oauthUserDto;
+
+    return await this.createUser(email, null, provider, nickname, [], []);
+  }
+
   comparePassword(password: string, confirmPassword: string): boolean {
     return password === confirmPassword;
   }
@@ -200,7 +211,7 @@ export class UserService {
     nickname: string,
     alcoholCategory: number[],
     moodCategory: number[],
-  ): Promise<UserPayload> {
+  ): Promise<User> {
     await this.categoryService.checkAlocoholIdsExist(alcoholCategory);
     await this.categoryService.checkMoodIdsExist(moodCategory);
 
@@ -231,25 +242,21 @@ export class UserService {
       data: newUser,
     });
 
-    return {
-      sub: user.id,
-    };
+    return user;
   }
 
-  async updateUserStatus(id: number): Promise<boolean> {
-    const user = await this.findUserById(id);
+  async updateUserStatus(user: User): Promise<boolean> {
     const { isActive } = user;
 
     await this.prisma.user.update({
-      where: { id },
+      where: { id: user.id },
       data: { isActive: !isActive },
     });
 
     return !isActive;
   }
 
-  async deleteUser(id: number): Promise<void> {
-    const user = await this.findUserById(id);
+  async deleteUser(user: User): Promise<void> {
     const { email } = user;
 
     const redisKey = `verify:complete:users:${email}`;
@@ -259,7 +266,7 @@ export class UserService {
     }
 
     await this.prisma.user.update({
-      where: { id },
+      where: { id: user.id },
       data: { deletedAt: new Date() },
     });
 
@@ -350,5 +357,46 @@ export class UserService {
       hasNext: hasNext,
       nextCursor: nextCursor,
     };
+  }
+
+  async resetPassword(
+    user: User,
+    updatePasswordDto: UpdatePasswordDto,
+  ): Promise<void> {
+    const { password, confirmPassword } = updatePasswordDto;
+    if (user.providerId !== 1) {
+      throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
+    }
+    if (!this.comparePassword(password, confirmPassword)) {
+      throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
+    }
+    const hashPassword = await bcrypt.hash(password, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashPassword },
+    });
+  }
+
+  async generateRandomNickname(): Promise<string> {
+    const baseNickname = '만취멍';
+    let nickname = baseNickname + generateRandomCode(8, 16);
+    let attemptCount = 1;
+
+    while (await this.findProfileByNickname(nickname)) {
+      nickname = baseNickname + generateRandomCode(8, 16);
+      ++attemptCount;
+
+      if (Number(attemptCount) >= 10) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: '랜덤 닉네임 시도가 너무 많아졌습니다.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
+    return nickname;
   }
 }

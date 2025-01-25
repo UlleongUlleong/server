@@ -69,7 +69,7 @@ export class AlcoholController {
     @Param('id', ParseIntPipe) alcoholId: number,
     @Body() reviewInfo: CreateReviewDto,
   ): Promise<HttpContent<{ alcohol: Alcohol; reviews: Review[] }>> {
-    const userId: number = req.user.sub;
+    const userId: number = req.user.id;
     await this.alcoholService.createReview(userId, alcoholId, reviewInfo);
     return {
       data: null,
@@ -83,7 +83,7 @@ export class AlcoholController {
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
   ): Promise<HttpContent<boolean>> {
-    const userId: number = req.user.sub;
+    const userId: number = req.user.id;
     const isBookmarked = await this.alcoholService.markStatus(
       userId,
       alcoholId,
@@ -100,7 +100,7 @@ export class AlcoholController {
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
   ): Promise<HttpContent<boolean>> {
-    const userId: number = req.user.sub;
+    const userId: number = req.user.id;
     const markStatus = await this.alcoholService.findMarkStatus(
       userId,
       alcoholId,

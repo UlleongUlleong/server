@@ -23,6 +23,7 @@ import { SkipStatusCheck } from 'src/common/decorators/skip-status-check.decorat
 import { QueryAlcoholDto } from './dtos/query.dto';
 import { Review } from '../alcohol/inerfaces/review.interface';
 import { AlcoholSummary } from './interfaces/alcohol-summary.interface';
+import { UpdatePasswordDto } from './dtos/update-password.dto';
 
 @Controller('users')
 export class UserController {
@@ -34,7 +35,7 @@ export class UserController {
   async getUserProfile(
     @Req() req: AuthenticateRequest,
   ): Promise<HttpContent<ProfileDetail>> {
-    const id: number = req.user.sub;
+    const id: number = req.user.id;
     const profile = await this.userService.findProfileWithRelation(id);
     return {
       data: profile,
@@ -48,7 +49,7 @@ export class UserController {
     @Req() req: AuthenticateRequest,
     @Body() updateProfileDto: UpdateProfileDto,
   ): Promise<HttpContent<null>> {
-    const id: number = req.user.sub;
+    const id: number = req.user.id;
     await this.userService.updateUserProfile(id, updateProfileDto);
 
     return {
@@ -98,8 +99,8 @@ export class UserController {
   async disableUser(
     @Req() req: AuthenticateRequest,
   ): Promise<HttpContent<null>> {
-    const id: number = req.user.sub;
-    const isActive = await this.userService.updateUserStatus(id);
+    const user = req.user;
+    const isActive = await this.userService.updateUserStatus(user);
 
     return {
       data: null,
@@ -114,8 +115,8 @@ export class UserController {
   async deleteUser(
     @Req() req: AuthenticateRequest,
   ): Promise<HttpContent<null>> {
-    const id: number = req.user.sub;
-    await this.userService.deleteUser(id);
+    const user = req.user;
+    await this.userService.deleteUser(user);
 
     return {
       data: null,
@@ -129,7 +130,7 @@ export class UserController {
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
   ): Promise<HttpContent<AlcoholSummary[]>> {
-    const id: number = req.user.sub;
+    const id: number = req.user.id;
     const { alcoholInfo, pagination } = await this.userService.findInterest(
       id,
       query,
@@ -146,7 +147,7 @@ export class UserController {
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
   ): Promise<HttpContent<Review[]>> {
-    const id: number = req.user.sub;
+    const id: number = req.user.id;
     const { myReviewInfo, pagination } = await this.userService.findMyReview(
       id,
       query,
@@ -154,6 +155,20 @@ export class UserController {
     return {
       data: myReviewInfo,
       pagination,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('password')
+  async updatePassword(
+    @Req() req: AuthenticateRequest,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ): Promise<HttpContent<null>> {
+    const user = req.user;
+    await this.userService.resetPassword(user, updatePasswordDto);
+    return {
+      data: null,
+      message: '비밀번호가 변경되었습니다.',
     };
   }
 }
