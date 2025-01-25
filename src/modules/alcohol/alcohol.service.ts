@@ -256,7 +256,6 @@ export class AlcoholService {
         interestCount: true,
       },
     });
-    console.log(alcoholInfo.interestCount);
     await this.prisma.alcohol.update({
       where: { id: alcoholId },
       data: {
