@@ -19,6 +19,9 @@ import { LocalLoginDto } from './dtos/local-login.dto';
 import { generateRandomCode } from 'src/common/utils/random-generator.util';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
+import { PrismaService } from '../../common/modules/prisma/prisma.service';
+import { User } from '@prisma/client';
+import { UpdatePasswordDto } from '../user/dtos/update-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +30,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private userService: UserService,
+    private prisma: PrismaService,
   ) {}
 
   async isPasswordMatch(
@@ -147,5 +151,42 @@ export class AuthService {
     const payload: UserPayload = await this.jwtService.verifyAsync(token);
 
     return payload;
+  }
+
+  async sendTemporaryPassword(emailDto: EmailDto): Promise<void> {
+    const { email } = emailDto;
+    const userInfo: User = await this.userService.findUserByEmail(email);
+    if (userInfo.providerId !== 1) {
+      throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
+    }
+    const temporaryPassword = await this.mailService.sendPassword(email);
+    const hashPassword = await this.hashPassword(temporaryPassword);
+    await this.updatePassword(email, hashPassword);
+  }
+
+  async updatePassword(email: string, password: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { email: email },
+      data: { password: password },
+    });
+  }
+
+  async resetPassword(
+    userId: number,
+    updatePasswordDto: UpdatePasswordDto,
+  ): Promise<void> {
+    const { password, confirmPassword } = updatePasswordDto;
+    const userInfo: User = await this.userService.findUserById(userId);
+    if (userInfo.providerId !== 1) {
+      throw new ForbiddenException('간편 로그인으로 등록된 사용자입니다.');
+    }
+    if (!this.userService.comparePassword(password, confirmPassword)) {
+      throw new BadRequestException('입력한 비밀번호가 서로 다릅니다.');
+    }
+    const hashPassword = await this.hashPassword(password);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashPassword },
+    });
   }
 }
