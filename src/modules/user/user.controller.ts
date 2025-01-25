@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserService } from './user.service';
-import { CustomResponse } from '../../common/interfaces/api-response.interface';
+import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { NicknameDto } from './dtos/nickname.dto';
@@ -33,7 +33,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async getUserProfile(
     @Req() req: AuthenticateRequest,
-  ): Promise<CustomResponse<ProfileDetail>> {
+  ): Promise<HttpContent<ProfileDetail>> {
     const id: number = req.user.sub;
     const profile = await this.userService.findProfileWithRelation(id);
     return {
@@ -47,7 +47,7 @@ export class UserController {
   async updateUserProfile(
     @Req() req: AuthenticateRequest,
     @Body() updateProfileDto: UpdateProfileDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     const id: number = req.user.sub;
     await this.userService.updateUserProfile(id, updateProfileDto);
 
@@ -59,7 +59,7 @@ export class UserController {
   @Get('email/availability')
   async checkEmailExists(
     @Query() emailDto: EmailDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     await this.userService.checkEmailDuplication(emailDto);
 
     return {
@@ -71,7 +71,7 @@ export class UserController {
   @Get('nickname/availability')
   async checkNicknameExists(
     @Query() nicknameDto: NicknameDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     await this.userService.checkNicknameDuplication(nicknameDto);
 
     return {
@@ -83,7 +83,7 @@ export class UserController {
   @Post()
   async createUser(
     @Body() createUserDto: CreateUserDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     await this.userService.createEmailUser(createUserDto);
 
     return {
@@ -97,7 +97,7 @@ export class UserController {
   @SkipStatusCheck()
   async disableUser(
     @Req() req: AuthenticateRequest,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     const id: number = req.user.sub;
     const isActive = await this.userService.updateUserStatus(id);
 
@@ -113,7 +113,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async deleteUser(
     @Req() req: AuthenticateRequest,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     const id: number = req.user.sub;
     await this.userService.deleteUser(id);
 
@@ -128,7 +128,7 @@ export class UserController {
   async getInterest(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<CustomResponse<AlcoholSummary[]>> {
+  ): Promise<HttpContent<AlcoholSummary[]>> {
     const id: number = req.user.sub;
     const { alcoholInfo, pagination } = await this.userService.findInterest(
       id,
@@ -145,7 +145,7 @@ export class UserController {
   async getMyReview(
     @Req() req: AuthenticateRequest,
     @Query() query: QueryAlcoholDto,
-  ): Promise<CustomResponse<Review[]>> {
+  ): Promise<HttpContent<Review[]>> {
     const id: number = req.user.sub;
     const { myReviewInfo, pagination } = await this.userService.findMyReview(
       id,

@@ -14,7 +14,7 @@ import { AlcoholService } from './alcohol.service';
 import { AlcoholQueryDto } from './dtos/alcohol-query.dto';
 import { CreateReviewDto } from './dtos/create-review.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CustomResponse } from '../../common/interfaces/api-response.interface';
+import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
 import { Alcohol } from './inerfaces/alcohol.interface';
 import { Review } from './inerfaces/review.interface';
@@ -26,7 +26,7 @@ export class AlcoholController {
   @Get()
   async findAlcohols(
     @Query() query: AlcoholQueryDto,
-  ): Promise<CustomResponse<Alcohol[]>> {
+  ): Promise<HttpContent<Alcohol[]>> {
     const { data, pagination } = await this.alcoholService.getAlcohols(query);
     return {
       data: data,
@@ -40,7 +40,7 @@ export class AlcoholController {
     @Param('id', ParseIntPipe) id: number,
     @Query() query?: AlcoholQueryDto,
   ): Promise<
-    CustomResponse<{
+    HttpContent<{
       alcoholInfo: Alcohol;
       reviewInfo: Review[];
     }>
@@ -59,7 +59,7 @@ export class AlcoholController {
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
     @Body() reviewInfo: CreateReviewDto,
-  ): Promise<CustomResponse<{ alcohol: Alcohol; reviews: Review[] }>> {
+  ): Promise<HttpContent<{ alcohol: Alcohol; reviews: Review[] }>> {
     const userId: number = req.user.sub;
     await this.alcoholService.createReview(userId, alcoholId, reviewInfo);
     return {
@@ -73,7 +73,7 @@ export class AlcoholController {
   async markStatus(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
-  ): Promise<CustomResponse<boolean>> {
+  ): Promise<HttpContent<boolean>> {
     const userId: number = req.user.sub;
     const isBookmarked = await this.alcoholService.markStatus(
       userId,
@@ -90,7 +90,7 @@ export class AlcoholController {
   async findMark(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
-  ): Promise<CustomResponse<boolean>> {
+  ): Promise<HttpContent<boolean>> {
     const userId: number = req.user.sub;
     const markStatus = await this.alcoholService.findMarkStatus(
       userId,
