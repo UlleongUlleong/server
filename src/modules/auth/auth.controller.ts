@@ -114,7 +114,7 @@ export class AuthController {
   @Post('email-password')
   async sendTemporaryPassword(
     @Body() emailDto: EmailDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     console.log(emailDto);
     await this.authService.sendTemporaryPassword(emailDto);
 
@@ -129,7 +129,7 @@ export class AuthController {
   async updatePassword(
     @Req() req: AuthenticateRequest,
     @Body() updatePasswordDto: UpdatePasswordDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     const id: number = req.user.sub;
     await this.authService.resetPassword(id, updatePasswordDto);
     return {
