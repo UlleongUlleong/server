@@ -1,57 +1,41 @@
-import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
-import { ValidationError } from 'class-validator';
-import { Request, Response } from 'express';
+import { ArgumentsHost, Catch, HttpException, Logger } from '@nestjs/common';
 import { HttpExceptionResponse } from '../interfaces/exception-response.interface';
+import { Socket } from 'socket.io';
+import { ValidationError } from 'class-validator';
 
 @Catch()
-export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
+export class WsExceptionFilter {
+  private readonly logger = new Logger(WsExceptionFilter.name);
 
   catch(exception: Error, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<Request>();
+    const ctx = host.switchToWs();
+    const client = ctx.getClient<Socket>();
+    const clientID = client.id;
 
-    const { method, originalUrl } = req;
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] =
       '서버에서 예기치 못한 오류가 발생했습니다.';
     let error = 'Internal Server Error';
 
     if (exception instanceof HttpException) {
-      status = exception.getStatus();
       const exceptionResponse =
         exception.getResponse() as HttpExceptionResponse;
       message = exceptionResponse.message || message;
       error = exceptionResponse.error || 'Bad Request';
 
-      this.logger.error(`[${method}] ${originalUrl} - ${error}`);
+      this.logger.error(`${clientID} - ${error}`);
     } else if (
       Array.isArray(exception) &&
       exception.every((error) => error instanceof ValidationError)
     ) {
-      status = HttpStatus.BAD_REQUEST;
       message = this.combineValidationException(exception);
       error = 'Validation Error';
 
-      this.logger.error(`[${method}] ${originalUrl} - ${error}`);
+      this.logger.error(`${clientID} - ${error}`);
     } else {
-      this.logger.error(`[${method}] ${originalUrl} - ${exception.stack}`);
+      this.logger.error(`${clientID} - ${exception.stack}`);
     }
 
-    res.status(status).json({
-      statusCode: status,
-      error,
-      message,
-      path: originalUrl,
-    });
+    client.emit('error', { message, error });
   }
 
   combineValidationException(exception: ValidationError[]) {

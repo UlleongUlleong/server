@@ -14,7 +14,7 @@ import { AlcoholService } from './alcohol.service';
 import { AlcoholQueryDto } from './dtos/alcohol-query.dto';
 import { CreateReviewDto } from './dtos/create-review.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CustomResponse } from '../../common/interfaces/api-response.interface';
+import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { AuthenticateRequest } from '../auth/interfaces/authenticate-request.interface';
 import { Alcohol } from './inerfaces/alcohol.interface';
 import { Review } from './inerfaces/review.interface';
@@ -26,7 +26,7 @@ export class AlcoholController {
   @Get()
   async findAlcohols(
     @Query() query: AlcoholQueryDto,
-  ): Promise<CustomResponse<Alcohol[]>> {
+  ): Promise<HttpContent<Alcohol[]>> {
     const { data, pagination } = await this.alcoholService.getAlcohols(query);
     return {
       data: data,
@@ -39,11 +39,12 @@ export class AlcoholController {
   async findOneAlcohol(
     @Param('id', ParseIntPipe) id: number,
     @Query() query?: AlcoholQueryDto,
-  ): Promise<CustomResponse<Review[]>> {
+  ): Promise<HttpContent<Review[]>> {
     const { pagination, reviewInfo } = await this.alcoholService.getReview(
       id,
       query,
     );
+
     return {
       data: reviewInfo,
       pagination,
@@ -53,7 +54,7 @@ export class AlcoholController {
   @Get(':id')
   async alcoholDetail(
     @Param('id', ParseIntPipe) id: number,
-  ): Promise<CustomResponse<Alcohol>> {
+  ): Promise<HttpContent<Alcohol>> {
     const alcoholInfo = await this.alcoholService.findAlcoholById(id);
     return {
       data: alcoholInfo,
@@ -67,7 +68,7 @@ export class AlcoholController {
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
     @Body() reviewInfo: CreateReviewDto,
-  ): Promise<CustomResponse<{ alcohol: Alcohol; reviews: Review[] }>> {
+  ): Promise<HttpContent<{ alcohol: Alcohol; reviews: Review[] }>> {
     const userId: number = req.user.sub;
     await this.alcoholService.createReview(userId, alcoholId, reviewInfo);
     return {
@@ -81,7 +82,7 @@ export class AlcoholController {
   async markStatus(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
-  ): Promise<CustomResponse<boolean>> {
+  ): Promise<HttpContent<boolean>> {
     const userId: number = req.user.sub;
     const isBookmarked = await this.alcoholService.markStatus(
       userId,
@@ -98,7 +99,7 @@ export class AlcoholController {
   async findMark(
     @Req() req: AuthenticateRequest,
     @Param('id', ParseIntPipe) alcoholId: number,
-  ): Promise<CustomResponse<boolean>> {
+  ): Promise<HttpContent<boolean>> {
     const userId: number = req.user.sub;
     const markStatus = await this.alcoholService.findMarkStatus(
       userId,

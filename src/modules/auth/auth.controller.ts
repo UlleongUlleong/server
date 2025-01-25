@@ -11,7 +11,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
-import { CustomResponse } from '../../common/interfaces/api-response.interface';
+import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Request, Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
@@ -140,9 +140,7 @@ export class AuthController {
   }
 
   @Post('email-codes')
-  async sendEmailCode(
-    @Body() emailDto: EmailDto,
-  ): Promise<CustomResponse<null>> {
+  async sendEmailCode(@Body() emailDto: EmailDto): Promise<HttpContent<null>> {
     await this.authService.sendEmailCode(emailDto);
 
     return {
@@ -154,7 +152,7 @@ export class AuthController {
   @Post('email-codes/verification')
   async verifyEmailCode(
     @Body() verifyCodeDto: VerifyCodeDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     await this.authService.verifyEmailCode(verifyCodeDto);
 
     return {
