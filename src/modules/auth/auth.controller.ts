@@ -115,7 +115,6 @@ export class AuthController {
   async sendTemporaryPassword(
     @Body() emailDto: EmailDto,
   ): Promise<HttpContent<null>> {
-    console.log(emailDto);
     await this.authService.sendTemporaryPassword(emailDto);
 
     return {
