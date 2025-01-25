@@ -32,7 +32,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "dist,prisma,package.json,package-lock.json"
-          target: "~/app",
+          target: "~/app"
       
       - name: Execute remote commands
         uses: appleboy/ssh-action@master
