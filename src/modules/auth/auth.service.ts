@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -159,7 +160,8 @@ export class AuthService {
   async decodeToken(token: string): Promise<UserPayload> {
     const user: UserPayload = await this.jwtService.decode(token);
     return user;
-    
+  }
+
   async sendTemporaryPassword(emailDto: EmailDto): Promise<void> {
     const { email } = emailDto;
     const userInfo: User = await this.userService.findUserByEmail(email);
