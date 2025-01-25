@@ -6,15 +6,18 @@ import {
   Res,
   UseGuards,
   Req,
+  Put,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
-import { CustomResponse } from '../../common/interfaces/api-response.interface';
+import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
 import { Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { UpdatePasswordDto } from '../user/dtos/update-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -87,9 +90,7 @@ export class AuthController {
   }
 
   @Post('email-codes')
-  async sendEmailCode(
-    @Body() emailDto: EmailDto,
-  ): Promise<CustomResponse<null>> {
+  async sendEmailCode(@Body() emailDto: EmailDto): Promise<HttpContent<null>> {
     await this.authService.sendEmailCode(emailDto);
 
     return {
@@ -101,12 +102,39 @@ export class AuthController {
   @Post('email-codes/verification')
   async verifyEmailCode(
     @Body() verifyCodeDto: VerifyCodeDto,
-  ): Promise<CustomResponse<null>> {
+  ): Promise<HttpContent<null>> {
     await this.authService.verifyEmailCode(verifyCodeDto);
 
     return {
       data: null,
       message: '인증이 완료되었습니다.',
+    };
+  }
+
+  @Post('email-password')
+  async sendTemporaryPassword(
+    @Body() emailDto: EmailDto,
+  ): Promise<CustomResponse<null>> {
+    console.log(emailDto);
+    await this.authService.sendTemporaryPassword(emailDto);
+
+    return {
+      data: null,
+      message: '임시 비밀번호가 발송되었습니다',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('password')
+  async updatePassword(
+    @Req() req: AuthenticateRequest,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ): Promise<CustomResponse<null>> {
+    const id: number = req.user.sub;
+    await this.authService.resetPassword(id, updatePasswordDto);
+    return {
+      data: null,
+      message: '비밀번호가 변경되었습니다.',
     };
   }
 }

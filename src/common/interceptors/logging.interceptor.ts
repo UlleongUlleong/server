@@ -6,6 +6,8 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, tap } from 'rxjs';
+import { Socket } from 'socket.io';
+import { parse } from 'url';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -18,11 +20,13 @@ export class LoggingInterceptor implements NestInterceptor {
     if (isHttp) {
       const req = context.switchToHttp().getRequest();
       this.logger.log(
-        `Http Request: ${req.method} ${req.url} - ${req.get('user-agent')} ${req.ip}`,
+        `Http Request: [${req.method}] ${parse(req.url, true).pathname} - ${req.get('user-agent')} [${req.ip}]`,
       );
     } else {
-      const client = context.switchToWs().getClient();
-      this.logger.log(`Ws Request: ${client}`);
+      const client = context.switchToWs().getClient<Socket>();
+      this.logger.log(
+        `Socket Message: ${client.id} [${client.handshake.address}]`,
+      );
     }
 
     return next.handle().pipe(
@@ -32,11 +36,13 @@ export class LoggingInterceptor implements NestInterceptor {
           const req = context.switchToHttp().getRequest();
           const res = context.switchToHttp().getResponse();
           this.logger.log(
-            `Http Response: ${req.method} ${req.url} - ${res.statusCode} ${req.ip} +${duration}`,
+            `Http Response: [${req.method}] ${parse(req.url, true).pathname} - ${res.statusCode} [${req.ip}] +${duration}`,
           );
         } else {
-          const client = context.switchToWs().getClient();
-          this.logger.log(`Ws Response: ${client} +${duration}`);
+          const client = context.switchToWs().getClient<Socket>();
+          this.logger.log(
+            `Socket Response: ${client.id} [${client.handshake.address}] +${duration}`,
+          );
         }
       }),
     );

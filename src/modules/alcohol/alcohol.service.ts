@@ -69,7 +69,7 @@ export class AlcoholService {
 
     return {
       hasNext: hasNext,
-      nextCursor: nextCursor,
+      nextCursor: nextCursor + 1,
     };
   }
 
@@ -103,23 +103,6 @@ export class AlcoholService {
         imageUrl: true,
       },
     });
-  }
-
-  async getAlcoholDetail(
-    id: number,
-    query?: AlcoholQueryDto,
-  ): Promise<{
-    alcoholInfo: Alcohol;
-    pagination: CursorPagination;
-    reviewInfo: Review[];
-  }> {
-    if (query.cursor) {
-      query.cursor = Number(query.cursor);
-    }
-    const alcoholInfo = await this.findAlcoholById(id);
-    const reviewInfo = await this.getReview(id, query);
-    const pagination = await this.createCursorMeta(query, reviewInfo);
-    return { alcoholInfo, pagination, reviewInfo };
   }
 
   async findAlcoholById(id: number): Promise<Alcohol> {
@@ -197,34 +180,45 @@ export class AlcoholService {
         scoreAverage: newAverage,
       },
     });
-
-    // const reviews = await this.getReview(alcoholId);
-    // const alcohol = await this.findAlcoholById(alcoholId);
-    // return { alcohol, reviews };
     return;
   }
 
   async getReview(
     alcoholId: number,
     query: AlcoholQueryDto,
-  ): Promise<Review[]> {
+  ): Promise<{ reviewInfo: Review[]; pagination: CursorPagination }> {
     const reviews = await this.prisma.userReviewAlochol.findMany({
       where: { alcoholId },
       take: query.limit ? Number(query.limit) : 5,
       cursor: query.cursor ? { id: query.cursor } : undefined,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
       select: {
         id: true,
         score: true,
         comment: true,
+        user: {
+          select: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
       },
     });
-
-    return reviews.map((review) => ({
+    const reviewInfo: Review[] = reviews.map((review) => ({
       id: review.id,
       score: review.score,
       comment: review.comment,
+      user: {
+        nickname: review.user.profile.nickname,
+        imageUrl: review.user.profile.imageUrl,
+      },
     }));
+    const pagination = await this.createCursorMeta(query, reviews);
+    return { reviewInfo, pagination };
   }
 
   async markStatus(userId: number, alcoholId: number): Promise<boolean> {
