@@ -1,5 +1,5 @@
-import { UserPayload } from '../../../common/interfaces/user-payload.interface';
+import { User } from '@prisma/client';
 
 export interface AuthenticateRequest extends Request {
-  user: UserPayload;
+  user: User;
 }
