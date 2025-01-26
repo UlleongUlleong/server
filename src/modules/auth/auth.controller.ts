@@ -6,6 +6,7 @@ import {
   Res,
   UseGuards,
   Req,
+  Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -17,6 +18,7 @@ import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 import { TokenService } from './token.service';
 import { checkNodeEnvIsProduction } from 'src/common/utils/environment.util';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -137,6 +139,18 @@ export class AuthController {
     return {
       data: null,
       message: '임시 비밀번호가 발송되었습니다',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('logout')
+  async logout(@Req() req: AuthenticateRequest): Promise<HttpContent<null>> {
+    const token = req.token;
+    await this.authService.logout(token);
+
+    return {
+      data: null,
+      message: '로그아웃 되었습니다.',
     };
   }
 }

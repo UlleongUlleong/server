@@ -38,4 +38,18 @@ export class TokenService {
 
     return;
   }
+
+  async deleteToken(token: string): Promise<void> {
+    const key = `refresh_token:for:${token}`;
+    await this.redis.del(key);
+    return;
+  }
+
+  async isToken(token: string): Promise<boolean> {
+    const stored = await this.redis.get(`refresh_token:for:${token}`);
+    if (stored) {
+      return true;
+    }
+    return false;
+  }
 }
