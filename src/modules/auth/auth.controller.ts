@@ -144,13 +144,18 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Delete('logout')
-  async logout(@Req() req: AuthenticateRequest): Promise<HttpContent<null>> {
+  async logout(
+    @Req() req: AuthenticateRequest,
+    @Res() res: Response,
+  ): Promise<Promise<void>> {
     const token = req.cookies['access_token'];
     await this.authService.logout(token);
-
-    return {
-      data: null,
-      message: '로그아웃 되었습니다.',
-    };
+    res.cookie('access_token', '', {
+      httpOnly: true,
+      secure: checkNodeEnvIsProduction(),
+      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      expires: new Date(0),
+    });
+    return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 }
