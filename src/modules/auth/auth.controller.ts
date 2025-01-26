@@ -16,6 +16,7 @@ import { Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 import { TokenService } from './token.service';
+import { checkNodeEnvIsProduction } from 'src/common/utils/environment.util';
 
 @Controller('auth')
 export class AuthController {
@@ -51,8 +52,13 @@ export class AuthController {
   ): Promise<void> {
     const id: number = req.user.id;
     const accessToken = await this.tokenService.createAccessToken(id);
+    await this.tokenService.createRefreshToken(id, accessToken);
 
-    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: checkNodeEnvIsProduction(),
+      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+    });
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
@@ -68,8 +74,13 @@ export class AuthController {
   ): Promise<void> {
     const id: number = req.user.id;
     const accessToken = await this.tokenService.createAccessToken(id);
+    await this.tokenService.createRefreshToken(id, accessToken);
 
-    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: checkNodeEnvIsProduction(),
+      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+    });
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
@@ -85,8 +96,13 @@ export class AuthController {
   ): Promise<void> {
     const id: number = req.user.id;
     const accessToken = await this.tokenService.createAccessToken(id);
+    await this.tokenService.createRefreshToken(id, accessToken);
 
-    res.header('Authorization', `Bearer ${accessToken}`);
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: checkNodeEnvIsProduction(),
+      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+    });
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 

@@ -23,7 +23,7 @@ export class JwtAuthGuard {
     const request: Request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 
-    let token = request.headers['authorization'].split(' ')[1];
+    const token = request.cookies['access_token'];
     if (!token) {
       throw new UnauthorizedException('엑세스 토큰이 필요합니다.');
     }
@@ -37,13 +37,13 @@ export class JwtAuthGuard {
       return true;
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
-        token = await this.tokenService.refreshAccessToken(token);
+        const newToken = await this.tokenService.refreshAccessToken(token);
 
-        const payload: UserPayload = await this.jwtService.decode(token);
+        const payload: UserPayload = await this.jwtService.decode(newToken);
         const user: User = await this.findUserById(payload.sub);
 
         request.user = user;
-        response.setHeader('Authorization', `Bearer ${token}`);
+        response.setHeader('Authorization', `Bearer ${newToken}`);
 
         return true;
       }
