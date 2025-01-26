@@ -29,15 +29,15 @@ export class AuthController {
   async login(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
-  ): Promise<Response<null>> {
+  ): Promise<void> {
     const accessToken = await this.authService.login(loginDto);
 
-    res.header('Authorization', `Bearer ${accessToken}`);
-    return res.status(200).json({
-      status: 'success',
-      data: null,
-      message: '로그인 성공',
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: checkNodeEnvIsProduction(),
+      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
     });
+    return res.redirect(process.env.FRONTEND_ORIGIN);
   }
 
   @Get('/google')
