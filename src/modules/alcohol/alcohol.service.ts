@@ -20,20 +20,46 @@ export class AlcoholService {
   }> {
     const alcoholList = await this.findAlcohol(query);
 
+    // const pagination = query.cursor
+    //   ? await this.createCursorMeta(query, alcoholList)
+    //   : await this.createOffsetMeta(query);
     const pagination = query.cursor
       ? await this.createCursorMeta(query, alcoholList)
-      : await this.createOffsetMeta(query);
+      : query.offset
+        ? await this.createOffsetMeta(query)
+        : await this.createCursorMeta(query, alcoholList);
 
-    const alcoholDtos: Alcohol[] = alcoholList.map((alcohol) => ({
-      id: alcohol.id,
-      name: alcohol.name,
-      alcoholCategory: alcohol.alcoholCategory,
-      scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
-      reviewCount: alcohol.reviewCount,
-      imageUrl: alcohol.imageUrl,
-    }));
+    // const alcoholDtos: Alcohol[] = alcoholList.map((alcohol) => ({
+    //   id: alcohol.id,
+    //   name: alcohol.name,
+    //   alcoholCategory: alcohol.alcoholCategory,
+    //   scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
+    //   reviewCount: alcohol.reviewCount,
+    //   imageUrl: alcohol.imageUrl,
+    // }));
 
-    return { data: alcoholDtos, pagination };
+    // return { data: alcoholDtos, pagination };
+    return {
+      data:
+        alcoholList.length === 1
+          ? alcoholList.map((alcohol) => ({
+              id: alcohol.id,
+              name: alcohol.name,
+              alcoholCategory: alcohol.alcoholCategory,
+              scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
+              reviewCount: alcohol.reviewCount,
+              imageUrl: alcohol.imageUrl,
+            }))
+          : alcoholList.slice(0, alcoholList.length - 1).map((alcohol) => ({
+              id: alcohol.id,
+              name: alcohol.name,
+              alcoholCategory: alcohol.alcoholCategory,
+              scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
+              reviewCount: alcohol.reviewCount,
+              imageUrl: alcohol.imageUrl,
+            })),
+      pagination,
+    };
   }
 
   async createOffsetMeta(query: AlcoholQueryDto): Promise<OffsetPagination> {
@@ -63,13 +89,16 @@ export class AlcoholService {
     alcoholList: { id: number }[],
   ): Promise<CursorPagination> {
     const lastAlcohol = alcoholList[alcoholList.length - 1];
-    const nextCursor = lastAlcohol ? lastAlcohol.id : null;
+    // const nextCursor = lastAlcohol ? lastAlcohol.id : null;
+    const nextCursor =
+      alcoholList.length > Number(query.limit) ? lastAlcohol.id : null;
 
-    const hasNext = alcoholList.length === query.limit;
+    // const hasNext = alcoholList.length === query.limit;
+    const hasNext = alcoholList.length === Number(query.limit) + 1;
 
     return {
       hasNext: hasNext,
-      nextCursor: nextCursor + 1,
+      nextCursor: nextCursor ? nextCursor : null,
     };
   }
 
@@ -81,10 +110,10 @@ export class AlcoholService {
     };
     const paginationParams = {
       skip: offset ? Number(offset) : undefined,
-      take: Number(limit) || 10,
+      take: limit ? Number(limit) + 1 : 10,
       cursor: cursor ? { id: Number(cursor) } : undefined,
     };
-    const orderParams: any = sort ? { [sort]: 'asc' } : { createdAt: 'asc' };
+    const orderParams: any = sort ? { [sort]: 'desc' } : { createdAt: 'asc' };
     return await this.prisma.alcohol.findMany({
       where: whereConditions,
       ...paginationParams,
