@@ -2,7 +2,6 @@ import {
   ForbiddenException,
   Injectable,
   UnauthorizedException,
-  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -94,9 +93,6 @@ export class AuthService {
   }
 
   async logout(token: string): Promise<void> {
-    if (!(await this.tokenService.isToken(token))) {
-      throw new BadRequestException('잘못된 접근입니다.');
-    }
     await this.tokenService.deleteToken(token);
     return;
   }
