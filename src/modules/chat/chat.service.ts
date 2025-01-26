@@ -391,27 +391,31 @@ export class ChatService implements OnApplicationShutdown {
 
   getWhereCondition(
     keyword: string,
-    alcoholCategory: string,
-    moodCategory: string,
+    alcoholCategory: string | undefined,
+    moodCategory: string | undefined,
   ): object {
     return {
       name: { search: keyword },
       description: { search: keyword },
       deletedAt: null,
-      alcoholCategory: {
-        some: {
-          alcoholCategoryId: {
-            in: alcoholCategory?.split(',').map(Number),
+      ...(alcoholCategory && {
+        alcoholCategory: {
+          some: {
+            alcoholCategoryId: {
+              in: alcoholCategory?.split(',').map(Number),
+            },
           },
         },
-      },
-      moodCategory: {
-        some: {
-          moodCategoryId: {
-            in: moodCategory?.split(',').map(Number),
+      }),
+      ...(moodCategory && {
+        moodCategory: {
+          some: {
+            moodCategoryId: {
+              in: moodCategory?.split(',').map(Number),
+            },
           },
         },
-      },
+      }),
     };
   }
 }
