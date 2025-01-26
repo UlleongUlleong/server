@@ -145,7 +145,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Delete('logout')
   async logout(@Req() req: AuthenticateRequest): Promise<HttpContent<null>> {
-    const token = req.token;
+    const token = req.cookies['access_token'];
     await this.authService.logout(token);
 
     return {

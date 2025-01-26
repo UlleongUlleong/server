@@ -5,12 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserPayload } from '../interfaces/user-payload.interface';
-// import { Request } from 'express';
+import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { TokenService } from 'src/modules/auth/token.service';
-import { AuthenticateRequest } from 'src/modules/auth/interfaces/authenticate-request.interface';
+import { checkNodeEnvIsProduction } from '../utils/environment.util';
 
 @Injectable()
 export class JwtAuthGuard {
@@ -21,11 +21,10 @@ export class JwtAuthGuard {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request: AuthenticateRequest = context.switchToHttp().getRequest();
+    const request: Request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 
     const token = request.cookies['access_token'];
-
     if (!token) {
       throw new UnauthorizedException('엑세스 토큰이 필요합니다.');
     }
@@ -35,7 +34,6 @@ export class JwtAuthGuard {
       const user: User = await this.findUserById(payload.sub);
 
       request.user = user;
-      request.token = token;
 
       return true;
     } catch (error) {
@@ -46,8 +44,11 @@ export class JwtAuthGuard {
         const user: User = await this.findUserById(payload.sub);
 
         request.user = user;
-        request.token = token;
-        response.setHeader('Authorization', `Bearer ${newToken}`);
+        response.cookie('access_token', newToken, {
+          httpOnly: true,
+          secure: checkNodeEnvIsProduction(),
+          sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+        });
 
         return true;
       }
