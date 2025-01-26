@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { TokenService } from 'src/modules/auth/token.service';
+import { checkNodeEnvIsProduction } from '../utils/environment.util';
 
 @Injectable()
 export class JwtAuthGuard {
@@ -43,7 +44,11 @@ export class JwtAuthGuard {
         const user: User = await this.findUserById(payload.sub);
 
         request.user = user;
-        response.setHeader('Authorization', `Bearer ${newToken}`);
+        response.cookie('access_token', newToken, {
+          httpOnly: true,
+          secure: checkNodeEnvIsProduction(),
+          sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+        });
 
         return true;
       }
