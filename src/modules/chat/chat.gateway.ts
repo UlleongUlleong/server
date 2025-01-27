@@ -147,7 +147,7 @@ export class ChatGateway {
 
     this.server
       .to(roomId.toString())
-      .emit('new_message', { data: message, message: '메시지 알림' });
+      .emit('new_message', { data: message, message: '새로운 메시지가 도착했습니다.' });
 
     return {
       event: 'message_sent',
