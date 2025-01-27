@@ -31,7 +31,7 @@ export class AuthController {
   async login(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
-  ): Promise<void> {
+  ): Promise<HttpContent<null>> {
     const accessToken = await this.authService.login(loginDto);
 
     res.cookie('access_token', accessToken, {
@@ -147,7 +147,7 @@ export class AuthController {
   async logout(
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
-  ): Promise<Promise<void>> {
+  ): Promise<Promise<HttpContent<null>>> {
     const token = req.cookies['access_token'];
     await this.authService.logout(token);
     res.cookie('access_token', '', {
