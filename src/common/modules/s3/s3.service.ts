@@ -4,7 +4,6 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import { Express } from 'express';
 
 @Injectable()
 export class S3Service {
