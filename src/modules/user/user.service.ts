@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -28,6 +29,7 @@ import { CursorPagination } from 'src/common/interfaces/pagination.interface';
 import { UpdatePasswordDto } from './dtos/update-password.dto';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { generateRandomCode } from 'src/common/utils/random-generator.util';
+import { S3Service } from 'src/common/modules/s3/s3.service';
 
 @Injectable()
 export class UserService {
@@ -35,6 +37,7 @@ export class UserService {
     @Inject('REDIS_CLIENT') private redis: Redis,
     private prisma: PrismaService,
     private categoryService: CategoryService,
+    private s3service: S3Service,
   ) {}
 
   async findProfileByNickname(nickname: string): Promise<Profile> {
@@ -398,5 +401,26 @@ export class UserService {
     }
 
     return nickname;
+  }
+
+  async uploadProfileImage(
+    userId: number,
+    file: Express.Multer.File,
+  ): Promise<void> {
+    try {
+      const uploadResult = await this.s3service.uploadFile(file, userId);
+      await this.prisma.profile.update({
+        where: { userId: userId },
+        data: { imageUrl: uploadResult },
+      });
+      return;
+    } catch {
+      throw new InternalServerErrorException('서버 에러');
+    }
+  }
+
+  async deleteProfileImage(userId: number): Promise<void> {
+    await this.s3service.deleteFile(userId);
+    return;
   }
 }

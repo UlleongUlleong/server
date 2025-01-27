@@ -9,6 +9,8 @@ import {
   Post,
   Patch,
   Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserService } from './user.service';
@@ -24,6 +26,7 @@ import { QueryAlcoholDto } from './dtos/query.dto';
 import { Review } from '../alcohol/inerfaces/review.interface';
 import { AlcoholSummary } from './interfaces/alcohol-summary.interface';
 import { UpdatePasswordDto } from './dtos/update-password.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 export class UserController {
@@ -169,6 +172,34 @@ export class UserController {
     return {
       data: null,
       message: '비밀번호가 변경되었습니다.',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/profile/image')
+  @UseInterceptors(FileInterceptor('profile_image'))
+  async uploadProfileImage(
+    @Req() req: AuthenticateRequest,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<HttpContent<null>> {
+    const userId = req.user.id;
+    await this.userService.uploadProfileImage(userId, file);
+    return {
+      data: null,
+      message: '프로필 이미지 업로드를 완료했습니다.',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/profile/image')
+  async deleteProfileImage(
+    @Req() req: AuthenticateRequest,
+  ): Promise<HttpContent<null>> {
+    const userId = req.user.id;
+    await this.userService.deleteProfileImage(userId);
+    return {
+      data: null,
+      message: '프로필 이미지를 삭제했습니다.',
     };
   }
 }

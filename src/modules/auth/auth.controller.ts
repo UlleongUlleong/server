@@ -39,7 +39,7 @@ export class AuthController {
       secure: checkNodeEnvIsProduction(),
       sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
     });
-    return res.redirect(process.env.FRONTEND_ORIGIN);
+    return;
   }
 
   @Get('/google')
@@ -156,6 +156,6 @@ export class AuthController {
       sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
       expires: new Date(0),
     });
-    return res.redirect(process.env.FRONTEND_ORIGIN);
+    return;
   }
 }
