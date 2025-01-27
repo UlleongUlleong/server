@@ -29,6 +29,8 @@ import {
   OffsetPagination,
 } from '../../common/interfaces/pagination.interface';
 import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import { NewMessage } from './interfaces/new-message.interface';
+import { SendMessageDto } from './dtos/send-message.dto';
 
 @Injectable()
 export class ChatService implements OnApplicationShutdown {
@@ -213,18 +215,26 @@ export class ChatService implements OnApplicationShutdown {
   async saveMessageToRedis(
     roomId: number,
     userId: number,
-    message: string,
-  ): Promise<void> {
+    sendMessageDto: SendMessageDto,
+  ): Promise<NewMessage> {
     const key = `chat:messages`;
 
-    const messageData = {
+    const newMessage = {
       userId,
       roomId,
-      message,
-      timestamp: new Date().toISOString(),
+      message: sendMessageDto.message,
+      createdAt: new Date().toISOString(),
     };
-    await this.redis.lpush(key, JSON.stringify(messageData));
+    await this.redis.lpush(key, JSON.stringify(newMessage));
+    const participant = await this.findParticipantById(userId);
+    delete newMessage.roomId;
+
+    return {
+      ...newMessage,
+      nickname: participant.nickname,
+    };
   }
+
   async getRoomIdByUserId(userId: number): Promise<number | null> {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { userId },
@@ -233,6 +243,7 @@ export class ChatService implements OnApplicationShutdown {
 
     return participant?.roomId || null;
   }
+
   async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
     this.logger.log('Batch insert chat messages into the database');
 
@@ -250,13 +261,14 @@ export class ChatService implements OnApplicationShutdown {
       userId: message.userId,
       roomId: message.roomId,
       message: message.message,
-      loggedAt: message.timestamp,
+      loggedAt: message.createdAt,
     }));
 
     await this.prisma.chatLog.createMany({
       data: chatMessages,
     });
   }
+
   async findRoomsByOffset(
     findRoomDto: FindByOffsetDto,
   ): Promise<RoomResponseByOffset> {

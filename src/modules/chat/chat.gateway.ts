@@ -20,6 +20,7 @@ import { WsExceptionFilter } from 'src/common/filters/ws-exception.filter';
 import { WsResponseInterceptor } from 'src/common/interceptors/ws-response.interceptor';
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
+import { SendMessageDto } from './dtos/send-message.dto';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseFilters(WsExceptionFilter)
@@ -124,9 +125,10 @@ export class ChatGateway {
   }
 
   @SubscribeMessage('send_message')
+  @UsePipes(new ValidationPipe())
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() message: string,
+    @MessageBody() sendMessageDto: SendMessageDto,
   ): Promise<WsContent<null>> {
     const userId = await this.chatService.findUserByClientId(client.id);
     const roomId = await this.chatService.getRoomIdByUserId(userId);
@@ -136,16 +138,18 @@ export class ChatGateway {
         data: null,
       };
     }
-    await this.chatService.saveMessageToRedis(roomId, userId, message);
-
-    this.server.to(roomId.toString()).emit('new_message', {
+    const message = await this.chatService.saveMessageToRedis(
+      roomId,
       userId,
-      message,
-      timestamp: new Date().toString(),
-    });
+      sendMessageDto,
+    );
+
+    this.server
+      .to(roomId.toString())
+      .emit('new_message', { data: message, message: '메시지 알림' });
 
     return {
-      event: 'message_send',
+      event: 'message_sent',
       data: null,
     };
   }
