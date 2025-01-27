@@ -28,6 +28,7 @@ import {
   CursorPagination,
   OffsetPagination,
 } from '../../common/interfaces/pagination.interface';
+import { UserWithNickname } from './interfaces/user-with-nickname.interface';
 
 @Injectable()
 export class ChatService implements OnApplicationShutdown {
@@ -132,7 +133,10 @@ export class ChatService implements OnApplicationShutdown {
     return room.id;
   }
 
-  async createParticipant(userId: number, roomId: number): Promise<void> {
+  async createParticipant(
+    userId: number,
+    roomId: number,
+  ): Promise<UserWithNickname> {
     await this.checkParticipantDuplication(userId);
     await this.checkRoomIdExists(roomId);
 
@@ -148,6 +152,23 @@ export class ChatService implements OnApplicationShutdown {
     await this.prisma.chatParticipant.create({
       data: newParticipant,
     });
+
+    const participant = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        profile: {
+          select: {
+            nickname: true,
+          },
+        },
+      },
+    });
+
+    return {
+      id: participant.id,
+      nickname: participant.profile.nickname,
+    };
   }
 
   async deleteParticipant(userId: number): Promise<number> {
