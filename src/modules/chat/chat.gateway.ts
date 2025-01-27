@@ -34,17 +34,18 @@ export class ChatGateway {
 
   async handleConnection(client: Socket) {
     try {
-      const header = client.handshake.headers.authorization;
-      const token = header?.replace('Bearer ', '');
-      const payload = await this.chatService.validateToken(token);
+      const cookieHeader = client.handshake.headers.cookie;
+      const token = this.chatService.getAccessTokenFromCookie(cookieHeader);
+      const user = await this.chatService.validateToken(token);
 
       const clientId = client.id;
-      const userId = payload.sub;
+      const userId = user.id;
       await this.chatService.createConnection(clientId, userId);
       this.logger.log(
         `Socket client(${clientId}) has connected to the server.`,
       );
-    } catch {
+    } catch (error) {
+      this.logger.error(`${client.id} - ${error.stack}`);
       client.disconnect();
     }
   }

@@ -11,7 +11,7 @@ import {
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { CategoryService } from '../category/category.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
 import { ThemeService } from './theme.service';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
@@ -56,7 +56,7 @@ export class ChatService implements OnApplicationShutdown {
     );
   }
 
-  async validateToken(token: string): Promise<UserPayload> {
+  async validateToken(token: string): Promise<User> {
     const payload: UserPayload = await this.jwtService.verify(token);
     const user = await this.userService.findUserById(payload.sub);
     if (!user || user.deletedAt !== null) {
@@ -67,7 +67,7 @@ export class ChatService implements OnApplicationShutdown {
       throw new ForbiddenException('비활성화된 사용자는 이용할 수 없습니다.');
     }
 
-    return payload;
+    return user;
   }
 
   async createConnection(clientId: string, userId: number): Promise<void> {
@@ -453,5 +453,19 @@ export class ChatService implements OnApplicationShutdown {
       id: participant.id,
       nickname: participant.profile.nickname,
     };
+  }
+
+  getAccessTokenFromCookie(cookieHeader: string): string {
+    const cookies = {};
+    if (!cookieHeader) {
+      throw new UnauthorizedException('쿠키가 존재하지 않습니다.');
+    }
+    const splitCookie = cookieHeader.split(';');
+    splitCookie.forEach((cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      cookies[key] = value;
+    });
+
+    return cookies['access_token'];
   }
 }
