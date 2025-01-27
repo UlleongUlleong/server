@@ -145,9 +145,10 @@ export class ChatGateway {
       sendMessageDto,
     );
 
-    this.server
-      .to(roomId.toString())
-      .emit('new_message', { data: message, message: '새로운 메시지가 도착했습니다.' });
+    this.server.to(roomId.toString()).emit('new_message', {
+      data: message,
+      message: '새로운 메시지가 도착했습니다.',
+    });
 
     return {
       event: 'message_sent',
