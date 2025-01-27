@@ -133,10 +133,7 @@ export class ChatService implements OnApplicationShutdown {
     return room.id;
   }
 
-  async createParticipant(
-    userId: number,
-    roomId: number,
-  ): Promise<UserWithNickname> {
+  async createParticipant(userId: number, roomId: number): Promise<void> {
     await this.checkParticipantDuplication(userId);
     await this.checkRoomIdExists(roomId);
 
@@ -152,23 +149,6 @@ export class ChatService implements OnApplicationShutdown {
     await this.prisma.chatParticipant.create({
       data: newParticipant,
     });
-
-    const participant = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        profile: {
-          select: {
-            nickname: true,
-          },
-        },
-      },
-    });
-
-    return {
-      id: participant.id,
-      nickname: participant.profile.nickname,
-    };
   }
 
   async deleteParticipant(userId: number): Promise<number> {
@@ -437,6 +417,29 @@ export class ChatService implements OnApplicationShutdown {
           },
         },
       }),
+    };
+  }
+
+  async findParticipantById(userId: number): Promise<UserWithNickname> {
+    const participant = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        profile: {
+          select: {
+            nickname: true,
+          },
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('참가자 정보를 찾을 수 없습니다.');
+    }
+
+    return {
+      id: participant.id,
+      nickname: participant.profile.nickname,
     };
   }
 }

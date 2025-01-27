@@ -84,10 +84,8 @@ export class ChatGateway {
     const clientId = client.id;
     const roomId = joinRoomDto.roomId;
     const userId = await this.chatService.findUserByClientId(clientId);
-    const participant = await this.chatService.createParticipant(
-      userId,
-      roomId,
-    );
+    await this.chatService.createParticipant(userId, roomId);
+    const participant = await this.chatService.findParticipantById(userId);
 
     client.join(roomId.toString());
     this.server.to(roomId.toString()).emit('user_joined', {
@@ -108,10 +106,15 @@ export class ChatGateway {
     const clientId = client.id;
     const userId = await this.chatService.findUserByClientId(clientId);
     const roomId = await this.chatService.deleteParticipant(userId);
+    await this.chatService.createParticipant(userId, roomId);
+    const participant = await this.chatService.findParticipantById(userId);
 
     if (roomId) {
       client.leave(roomId.toString());
-      this.server.to(roomId.toString()).emit('user_left', { userId });
+      this.server.to(roomId.toString()).emit('user_left', {
+        data: participant,
+        message: `${participant.nickname}님이 채팅방을 퇴장했습니다.`,
+      });
     }
 
     return {
