@@ -5,6 +5,7 @@ import { MailModule } from '../mail/mail.module';
 import { CategoryModule } from '../category/category.module';
 import { JwtModule } from '@nestjs/jwt';
 import { TokenService } from '../auth/token.service';
+import { S3Module } from 'src/common/modules/s3/s3.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { TokenService } from '../auth/token.service';
     JwtModule.register({
       secret: process.env.JWT_SECRET_KEY,
     }),
+    S3Module,
   ],
   providers: [UserService, TokenService],
   controllers: [UserController],
