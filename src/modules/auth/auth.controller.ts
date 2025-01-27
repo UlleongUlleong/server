@@ -13,7 +13,7 @@ import { AuthService } from './auth.service';
 import { EmailDto } from '../mail/dtos/email.dto';
 import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { LocalLoginDto } from './dtos/local-login.dto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { VerifyCodeDto } from '../mail/dtos/verify-code.dto';
 import { AuthenticateRequest } from './interfaces/authenticate-request.interface';
 import { TokenService } from './token.service';
@@ -31,6 +31,7 @@ export class AuthController {
   async login(
     @Body() loginDto: LocalLoginDto,
     @Res() res: Response,
+    @Req() req: Request,
   ): Promise<void> {
     const accessToken = await this.authService.login(loginDto);
 
@@ -39,7 +40,12 @@ export class AuthController {
       secure: checkNodeEnvIsProduction(),
       sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
     });
-    return res.redirect(process.env.FRONTEND_ORIGIN);
+    res.json({
+      statusCode: 200,
+      message: '로그인 되었습니다.',
+      data: null,
+      path: req.url,
+    });
   }
 
   @Get('/google')
@@ -147,7 +153,7 @@ export class AuthController {
   async logout(
     @Req() req: AuthenticateRequest,
     @Res() res: Response,
-  ): Promise<Promise<void>> {
+  ): Promise<void> {
     const token = req.cookies['access_token'];
     await this.authService.logout(token);
     res.cookie('access_token', '', {
@@ -156,6 +162,11 @@ export class AuthController {
       sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
       expires: new Date(0),
     });
-    return res.redirect(process.env.FRONTEND_ORIGIN);
+    res.json({
+      statusCode: 200,
+      message: '로그아웃 되었습니다.',
+      data: null,
+      path: req.url,
+    });
   }
 }
