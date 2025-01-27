@@ -92,7 +92,7 @@ export class ChatGateway {
     client.join(roomId.toString());
     this.server.to(roomId.toString()).emit('user_joined', {
       data: participant,
-      message: `${participant.nickname}님이 채팅방에 입장하였습니다.`,
+      message: `${participant.nickname}님이 채팅방에 입장했습니다.`,
     });
 
     return {
