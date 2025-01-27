@@ -10,8 +10,10 @@ export class TokenService {
     @Inject('REDIS_CLIENT') private redis: Redis,
   ) {}
 
-  async refreshAccessToken(token: string): Promise<string> {
-    const refreshToken = await this.redis.get(`refresh_token:for:${token}`);
+  async refreshAccessToken(
+    token: string,
+  ): Promise<{ newToken: string; maxAge: boolean }> {
+    const refreshToken = await this.redis.hgetall(`refresh_token:for:${token}`);
     if (!refreshToken) {
       throw new UnauthorizedException('다시 로그인해주세요.');
     }
@@ -19,23 +21,34 @@ export class TokenService {
     const payload: UserPayload = this.jwtService.decode(token);
     const newToken = await this.createAccessToken(payload.sub);
     await this.createRefreshToken(payload.sub, newToken);
-    await this.redis.del(token);
-
-    return newToken;
+    await this.redis.del(`refresh_token:for:${token}`);
+    let maxAge = false;
+    if (refreshToken.isRemembered) {
+      maxAge = true;
+    }
+    return { newToken, maxAge };
   }
 
   async createAccessToken(id: number): Promise<string> {
-    return this.jwtService.sign({ sub: id }, { expiresIn: '1h' });
+    return this.jwtService.sign({ sub: id }, { expiresIn: '10s' });
   }
 
-  async createRefreshToken(id: number, accessToken: string): Promise<void> {
+  async createRefreshToken(
+    id: number,
+    accessToken: string,
+    isRemembered?: boolean,
+  ): Promise<void> {
     const refreshToken = this.jwtService.sign({ sub: id }, { expiresIn: '7d' });
     const { exp } = this.jwtService.decode(refreshToken);
     const key = `refresh_token:for:${accessToken}`;
-
-    await this.redis.set(key, refreshToken);
+    await this.redis.hset(
+      key,
+      'refreshToken',
+      refreshToken,
+      'isRemembered',
+      isRemembered ? 1 : 0,
+    );
     await this.redis.expireat(key, exp);
-
     return;
   }
 
@@ -46,8 +59,7 @@ export class TokenService {
   }
 
   async isToken(token: string): Promise<boolean> {
-    const stored = await this.redis.get(`refresh_token:for:${token}`);
-    if (stored) {
+    if (await this.redis.hexists(`refresh_token:for:${token}`, 'refeshToken')) {
       return true;
     }
     return false;

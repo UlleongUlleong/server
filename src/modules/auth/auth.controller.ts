@@ -39,6 +39,7 @@ export class AuthController {
       httpOnly: true,
       secure: checkNodeEnvIsProduction(),
       sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      maxAge: loginDto.isRemembered ? 604799000 : null,
     });
     res.json({
       statusCode: 200,

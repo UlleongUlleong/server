@@ -38,16 +38,17 @@ export class JwtAuthGuard {
       return true;
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
-        const newToken = await this.tokenService.refreshAccessToken(token);
+        const { newToken, maxAge } =
+          await this.tokenService.refreshAccessToken(token);
 
         const payload: UserPayload = await this.jwtService.decode(newToken);
         const user: User = await this.findUserById(payload.sub);
-
         request.user = user;
         response.cookie('access_token', newToken, {
           httpOnly: true,
           secure: checkNodeEnvIsProduction(),
           sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+          maxAge: maxAge ? 604799000 : null,
         });
 
         return true;
