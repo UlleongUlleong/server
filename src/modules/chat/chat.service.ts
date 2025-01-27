@@ -11,7 +11,7 @@ import {
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { CategoryService } from '../category/category.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
 import { ThemeService } from './theme.service';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
@@ -28,6 +28,9 @@ import {
   CursorPagination,
   OffsetPagination,
 } from '../../common/interfaces/pagination.interface';
+import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import { NewMessage } from './interfaces/new-message.interface';
+import { SendMessageDto } from './dtos/send-message.dto';
 
 @Injectable()
 export class ChatService implements OnApplicationShutdown {
@@ -53,7 +56,7 @@ export class ChatService implements OnApplicationShutdown {
     );
   }
 
-  async validateToken(token: string): Promise<UserPayload> {
+  async validateToken(token: string): Promise<User> {
     const payload: UserPayload = await this.jwtService.verify(token);
     const user = await this.userService.findUserById(payload.sub);
     if (!user || user.deletedAt !== null) {
@@ -64,7 +67,7 @@ export class ChatService implements OnApplicationShutdown {
       throw new ForbiddenException('비활성화된 사용자는 이용할 수 없습니다.');
     }
 
-    return payload;
+    return user;
   }
 
   async createConnection(clientId: string, userId: number): Promise<void> {
@@ -212,18 +215,26 @@ export class ChatService implements OnApplicationShutdown {
   async saveMessageToRedis(
     roomId: number,
     userId: number,
-    message: string,
-  ): Promise<void> {
+    sendMessageDto: SendMessageDto,
+  ): Promise<NewMessage> {
     const key = `chat:messages`;
 
-    const messageData = {
+    const newMessage = {
       userId,
       roomId,
-      message,
-      timestamp: new Date().toISOString(),
+      message: sendMessageDto.message,
+      createdAt: new Date().toISOString(),
     };
-    await this.redis.lpush(key, JSON.stringify(messageData));
+    await this.redis.lpush(key, JSON.stringify(newMessage));
+    const participant = await this.findParticipantById(userId);
+    delete newMessage.roomId;
+
+    return {
+      ...newMessage,
+      nickname: participant.nickname,
+    };
   }
+
   async getRoomIdByUserId(userId: number): Promise<number | null> {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { userId },
@@ -232,6 +243,7 @@ export class ChatService implements OnApplicationShutdown {
 
     return participant?.roomId || null;
   }
+
   async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
     this.logger.log('Batch insert chat messages into the database');
 
@@ -249,13 +261,14 @@ export class ChatService implements OnApplicationShutdown {
       userId: message.userId,
       roomId: message.roomId,
       message: message.message,
-      loggedAt: message.timestamp,
+      loggedAt: message.createdAt,
     }));
 
     await this.prisma.chatLog.createMany({
       data: chatMessages,
     });
   }
+
   async findRoomsByOffset(
     findRoomDto: FindByOffsetDto,
   ): Promise<RoomResponseByOffset> {
@@ -417,5 +430,42 @@ export class ChatService implements OnApplicationShutdown {
         },
       }),
     };
+  }
+
+  async findParticipantById(userId: number): Promise<UserWithNickname> {
+    const participant = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        profile: {
+          select: {
+            nickname: true,
+          },
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('참가자 정보를 찾을 수 없습니다.');
+    }
+
+    return {
+      id: participant.id,
+      nickname: participant.profile.nickname,
+    };
+  }
+
+  getAccessTokenFromCookie(cookieHeader: string): string {
+    const cookies = {};
+    if (!cookieHeader) {
+      throw new UnauthorizedException('쿠키가 존재하지 않습니다.');
+    }
+    const splitCookie = cookieHeader.split(';');
+    splitCookie.forEach((cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      cookies[key] = value;
+    });
+
+    return cookies['access_token'];
   }
 }

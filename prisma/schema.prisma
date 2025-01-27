@@ -165,7 +165,7 @@ model ChatParticipant {
 
 model ChatAlcoholCategory {
   roomId            Int
-  chatRoom          ChatRoom        @relation(fields: [roomId], references: [id])
+  chatRoom          ChatRoom        @relation(fields: [roomId], references: [id], onDelete: Cascade)
   alcoholCategoryId Int
   alcoholCategory   AlcoholCategory @relation(fields: [alcoholCategoryId], references: [id])
 
@@ -174,7 +174,7 @@ model ChatAlcoholCategory {
 
 model ChatMoodCategory {
   roomId            Int
-  chatRoom          ChatRoom        @relation(fields: [roomId], references: [id])
+  chatRoom          ChatRoom        @relation(fields: [roomId], references: [id], onDelete: Cascade)
   moodCategoryId    Int
   moodCategory      MoodCategory    @relation(fields: [moodCategoryId], references: [id])
 
@@ -182,11 +182,11 @@ model ChatMoodCategory {
 }
 
 model ChatLog {
-  id Int @id @default(autoincrement())
-  message String @db.VarChar(100)
-  loggedAt String @db.VarChar(100)
-  roomId Int?
-  userId Int
-  chatRoom ChatRoom? @relation(fields: [roomId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  id        Int       @id @default(autoincrement())
+  message   String    @db.VarChar(500)
+  loggedAt  DateTime
+  roomId    Int
+  userId    Int
+  chatRoom  ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

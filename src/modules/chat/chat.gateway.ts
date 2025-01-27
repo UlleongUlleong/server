@@ -20,6 +20,7 @@ import { WsExceptionFilter } from 'src/common/filters/ws-exception.filter';
 import { WsResponseInterceptor } from 'src/common/interceptors/ws-response.interceptor';
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
+import { SendMessageDto } from './dtos/send-message.dto';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseFilters(WsExceptionFilter)
@@ -33,17 +34,18 @@ export class ChatGateway {
 
   async handleConnection(client: Socket) {
     try {
-      const header = client.handshake.headers.authorization;
-      const token = header?.replace('Bearer ', '');
-      const payload = await this.chatService.validateToken(token);
+      const cookieHeader = client.handshake.headers.cookie;
+      const token = this.chatService.getAccessTokenFromCookie(cookieHeader);
+      const user = await this.chatService.validateToken(token);
 
       const clientId = client.id;
-      const userId = payload.sub;
+      const userId = user.id;
       await this.chatService.createConnection(clientId, userId);
       this.logger.log(
         `Socket client(${clientId}) has connected to the server.`,
       );
-    } catch {
+    } catch (error) {
+      this.logger.error(`${client.id} - ${error.stack}`);
       client.disconnect();
     }
   }
@@ -85,9 +87,13 @@ export class ChatGateway {
     const roomId = joinRoomDto.roomId;
     const userId = await this.chatService.findUserByClientId(clientId);
     await this.chatService.createParticipant(userId, roomId);
+    const participant = await this.chatService.findParticipantById(userId);
 
     client.join(roomId.toString());
-    this.server.to(roomId.toString()).emit('user_joined', { userId });
+    this.server.to(roomId.toString()).emit('user_joined', {
+      data: participant,
+      message: `${participant.nickname}님이 채팅방에 입장했습니다.`,
+    });
 
     return {
       event: 'room_joined',
@@ -102,10 +108,15 @@ export class ChatGateway {
     const clientId = client.id;
     const userId = await this.chatService.findUserByClientId(clientId);
     const roomId = await this.chatService.deleteParticipant(userId);
+    await this.chatService.createParticipant(userId, roomId);
+    const participant = await this.chatService.findParticipantById(userId);
 
     if (roomId) {
       client.leave(roomId.toString());
-      this.server.to(roomId.toString()).emit('user_left', { userId });
+      this.server.to(roomId.toString()).emit('user_left', {
+        data: participant,
+        message: `${participant.nickname}님이 채팅방을 퇴장했습니다.`,
+      });
     }
 
     return {
@@ -115,9 +126,10 @@ export class ChatGateway {
   }
 
   @SubscribeMessage('send_message')
+  @UsePipes(new ValidationPipe())
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() message: string,
+    @MessageBody() sendMessageDto: SendMessageDto,
   ): Promise<WsContent<null>> {
     const userId = await this.chatService.findUserByClientId(client.id);
     const roomId = await this.chatService.getRoomIdByUserId(userId);
@@ -127,16 +139,19 @@ export class ChatGateway {
         data: null,
       };
     }
-    await this.chatService.saveMessageToRedis(roomId, userId, message);
+    const message = await this.chatService.saveMessageToRedis(
+      roomId,
+      userId,
+      sendMessageDto,
+    );
 
     this.server.to(roomId.toString()).emit('new_message', {
-      userId,
-      message,
-      timestamp: new Date().toString(),
+      data: message,
+      message: '새로운 메시지가 도착했습니다.',
     });
 
     return {
-      event: 'message_send',
+      event: 'message_sent',
       data: null,
     };
   }
