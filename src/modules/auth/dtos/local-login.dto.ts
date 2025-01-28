@@ -9,6 +9,6 @@ export class LocalLoginDto {
   @IsString()
   readonly password: string;
 
-  @IsBoolean()
+  @IsBoolean({ message: '자동로그인 여부는 필수입니다.' })
   readonly isRemembered: boolean = false;
 }
