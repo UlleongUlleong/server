@@ -5,6 +5,7 @@ type Label = {
 
 export interface ProfileDetail {
   nickname: string;
+  imageUrl: string;
   alcoholCategory: Label[];
   moodCategory: Label[];
 }
