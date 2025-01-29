@@ -46,8 +46,9 @@ export class JwtAuthGuard {
         request.user = user;
         response.cookie('access_token', newToken, {
           httpOnly: true,
-          secure: checkNodeEnvIsProduction(),
-          sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+          secure: true,
+          sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+          domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
           maxAge: maxAge ? 604799000 : null,
         });
 

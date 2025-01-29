@@ -37,10 +37,12 @@ export class AuthController {
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: checkNodeEnvIsProduction(),
-      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      secure: true,
+      sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+      domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
       maxAge: loginDto.isRemembered ? 604799000 : null,
     });
+
     res.json({
       statusCode: 200,
       message: '로그인 되었습니다.',
@@ -65,8 +67,9 @@ export class AuthController {
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: checkNodeEnvIsProduction(),
-      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      secure: true,
+      sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+      domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
     });
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
@@ -87,8 +90,9 @@ export class AuthController {
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: checkNodeEnvIsProduction(),
-      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      secure: true,
+      sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+      domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
     });
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
@@ -109,8 +113,9 @@ export class AuthController {
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: checkNodeEnvIsProduction(),
-      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      secure: true,
+      sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+      domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
     });
     return res.redirect(process.env.FRONTEND_ORIGIN);
   }
@@ -157,12 +162,15 @@ export class AuthController {
   ): Promise<void> {
     const token = req.cookies['access_token'];
     await this.authService.logout(token);
+
     res.cookie('access_token', '', {
       httpOnly: true,
-      secure: checkNodeEnvIsProduction(),
-      sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+      secure: true,
+      sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+      domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
       expires: new Date(0),
     });
+
     res.json({
       statusCode: 200,
       message: '로그아웃 되었습니다.',
