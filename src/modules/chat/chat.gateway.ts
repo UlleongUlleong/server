@@ -38,8 +38,7 @@ export class ChatGateway {
       const user = await this.chatService.validateToken(token);
 
       const clientId = client.id;
-      const userId = user.id;
-      await this.chatService.createConnection(clientId, userId);
+      client.data.user = user;
       this.logger.log(
         `Socket client(${clientId}) has connected to the server.`,
       );
@@ -51,9 +50,10 @@ export class ChatGateway {
 
   async handleDisconnect(client: Socket) {
     const clientId = client.id;
-
-    await this.handleLeaveRoom(client);
-    await this.chatService.deleteConnection(clientId);
+    const user = client.data.user;
+    if (user) {
+      await this.handleLeaveRoom(client);
+    }
     this.logger.log(
       `Socket client(${clientId}) has disconnected from the server.`,
     );
@@ -66,8 +66,8 @@ export class ChatGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
   ): Promise<WsContent<null>> {
-    const userId = await this.chatService.findUserByClientId(client.id);
-    const room = await this.chatService.createChatRoom(userId, createRoomDto);
+    const user = client.data.user;
+    const room = await this.chatService.createChatRoom(user.id, createRoomDto);
 
     client.join(room.toString());
 
@@ -84,11 +84,10 @@ export class ChatGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
   ): Promise<WsContent<null>> {
-    const clientId = client.id;
+    const user = client.data.user;
     const roomId = joinRoomDto.roomId;
-    const userId = await this.chatService.findUserByClientId(clientId);
-    await this.chatService.createParticipant(userId, roomId);
-    const participant = await this.chatService.findParticipantById(userId);
+    await this.chatService.createParticipant(user.id, roomId);
+    const participant = await this.chatService.findParticipantById(user.id);
 
     client.join(roomId.toString());
     this.server.to(roomId.toString()).emit('user_joined', {
@@ -107,11 +106,10 @@ export class ChatGateway {
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,
   ): Promise<WsContent<null>> {
-    const clientId = client.id;
-    const userId = await this.chatService.findUserByClientId(clientId);
-    const roomId = await this.chatService.deleteParticipant(userId);
-    await this.chatService.createParticipant(userId, roomId);
-    const participant = await this.chatService.findParticipantById(userId);
+    const user = client.data.user;
+    const roomId = await this.chatService.deleteParticipant(user.id);
+    await this.chatService.createParticipant(user.id, roomId);
+    const participant = await this.chatService.findParticipantById(user.id);
 
     if (roomId) {
       client.leave(roomId.toString());
@@ -134,8 +132,8 @@ export class ChatGateway {
     @ConnectedSocket() client: Socket,
     @MessageBody() sendMessageDto: SendMessageDto,
   ): Promise<WsContent<null>> {
-    const userId = await this.chatService.findUserByClientId(client.id);
-    const roomId = await this.chatService.getRoomIdByUserId(userId);
+    const user = client.data.user;
+    const roomId = await this.chatService.getRoomIdByUserId(user.id);
     if (!roomId) {
       return {
         event: 'error',
@@ -144,7 +142,7 @@ export class ChatGateway {
     }
     const message = await this.chatService.saveMessageToRedis(
       roomId,
-      userId,
+      user.id,
       sendMessageDto,
     );
 

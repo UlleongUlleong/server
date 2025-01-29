@@ -30,7 +30,7 @@ export class TokenService {
   }
 
   async createAccessToken(id: number): Promise<string> {
-    return this.jwtService.sign({ sub: id }, { expiresIn: '10s' });
+    return this.jwtService.sign({ sub: id }, { expiresIn: '1h' });
   }
 
   async createRefreshToken(
