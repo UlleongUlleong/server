@@ -23,7 +23,6 @@ import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 
 @WebSocketGateway({ namespace: 'chat' })
-@UseFilters(WsExceptionFilter)
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
 export class ChatGateway {
   private readonly logger = new Logger(ChatGateway.name);
@@ -62,6 +61,7 @@ export class ChatGateway {
 
   @SubscribeMessage('create_room')
   @UsePipes(new ValidationPipe())
+  @UseFilters(WsExceptionFilter)
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
@@ -79,6 +79,7 @@ export class ChatGateway {
 
   @SubscribeMessage('join_room')
   @UsePipes(new ValidationPipe())
+  @UseFilters(WsExceptionFilter)
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
@@ -102,6 +103,7 @@ export class ChatGateway {
   }
 
   @SubscribeMessage('leave_room')
+  @UseFilters(WsExceptionFilter)
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,
   ): Promise<WsContent<null>> {
@@ -127,6 +129,7 @@ export class ChatGateway {
 
   @SubscribeMessage('send_message')
   @UsePipes(new ValidationPipe())
+  @UseFilters(WsExceptionFilter)
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody() sendMessageDto: SendMessageDto,

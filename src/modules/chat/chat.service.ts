@@ -59,7 +59,7 @@ export class ChatService implements OnApplicationShutdown {
   async validateToken(token: string): Promise<User> {
     const payload: UserPayload = await this.jwtService.verify(token);
     const user = await this.userService.findUserById(payload.sub);
-    if (!user || user.deletedAt !== null) {
+    if (user.deletedAt !== null) {
       throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
     }
 
