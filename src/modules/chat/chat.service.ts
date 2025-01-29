@@ -243,7 +243,7 @@ export class ChatService implements OnApplicationShutdown {
       userId: message.userId,
       roomId: message.roomId,
       message: message.message,
-      loggedAt: message.createdAt,
+      loggedAt: new Date(message.createdAt),
     }));
 
     await this.prisma.chatLog.createMany({
