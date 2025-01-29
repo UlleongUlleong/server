@@ -70,6 +70,7 @@ export class UserService {
 
     return {
       nickname: user.profile.nickname,
+      imageUrl: user.profile.imageUrl,
       moodCategory: user.userMoodCategory?.map((value) => ({
         id: value.moodCategory.id,
         name: value.moodCategory.name,
@@ -227,6 +228,7 @@ export class UserService {
       profile: {
         create: {
           nickname,
+          imageUrl: process.env.AWS_S3_DEFAULT_PROFILE_IMGAE_URL,
         },
       },
       userAlcoholCategory: {
@@ -421,6 +423,10 @@ export class UserService {
 
   async deleteProfileImage(userId: number): Promise<void> {
     await this.s3service.deleteFile(userId);
+    await this.prisma.profile.update({
+      where: { userId: userId },
+      data: { imageUrl: process.env.AWS_S3_DEFAULT_PROFILE_IMGAE_URL },
+    });
     return;
   }
 }

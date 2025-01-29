@@ -33,7 +33,7 @@ export class AuthService {
   }
 
   async login(loginDto: LocalLoginDto): Promise<string> {
-    const { email, password } = loginDto;
+    const { email, password, isRemembered } = loginDto;
     const user = await this.userService.findUserByEmail(email);
     if (!user) {
       throw new UnauthorizedException('이메일 혹은 비밀번호가 다릅니다.');
@@ -48,8 +48,11 @@ export class AuthService {
 
     await this.userService.restoreUser(user.id);
     const accessToken = await this.tokenService.createAccessToken(user.id);
-    await this.tokenService.createRefreshToken(user.id, accessToken);
-
+    await this.tokenService.createRefreshToken(
+      user.id,
+      accessToken,
+      isRemembered,
+    );
     return accessToken;
   }
 
