@@ -11,7 +11,7 @@ import {
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
 import { CategoryService } from '../category/category.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { ThemeService } from './theme.service';
 import { UserPayload } from '../../common/interfaces/user-payload.interface';
 import { JwtService } from '@nestjs/jwt';
@@ -31,6 +31,7 @@ import {
 import { UserWithNickname } from './interfaces/user-with-nickname.interface';
 import { NewMessage } from './interfaces/new-message.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
+import { SafeUser } from '../user/interfaces/safe-user.interface';
 
 @Injectable()
 export class ChatService implements OnApplicationShutdown {
@@ -50,16 +51,15 @@ export class ChatService implements OnApplicationShutdown {
     await this.batchSaveMessagesToDB();
   }
   async onApplicationShutdown(signal?: string) {
-    await this.deleteAllConnections();
     this.logger.log(
       `All connected chat client information has been deleted from Redis.: ${signal}`,
     );
   }
 
-  async validateToken(token: string): Promise<User> {
+  async validateToken(token: string): Promise<SafeUser> {
     const payload: UserPayload = await this.jwtService.verify(token);
     const user = await this.userService.findUserById(payload.sub);
-    if (!user || user.deletedAt !== null) {
+    if (user.deletedAt !== null) {
       throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
     }
 
@@ -67,32 +67,14 @@ export class ChatService implements OnApplicationShutdown {
       throw new ForbiddenException('비활성화된 사용자는 이용할 수 없습니다.');
     }
 
-    return user;
-  }
+    const safeUser: SafeUser = {
+      id: user.id,
+      providerId: user.providerId,
+      isActive: user.isActive,
+      deletedAt: user.deletedAt,
+    };
 
-  async createConnection(clientId: string, userId: number): Promise<void> {
-    const key = 'chat:users';
-    await this.redis.hset(key, clientId, userId);
-  }
-
-  async deleteConnection(clientId: string): Promise<void> {
-    const key = 'chat:users';
-    await this.redis.hdel(key, clientId);
-  }
-
-  async deleteAllConnections(): Promise<void> {
-    const key = 'chat:users';
-    await this.redis.del(key);
-  }
-
-  async findUserByClientId(clientId: string): Promise<number> {
-    const key = 'chat:users';
-    const userId = await this.redis.hget(key, clientId);
-    if (!userId) {
-      throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
-    }
-
-    return Number(userId);
+    return safeUser;
   }
 
   async createChatRoom(userId: number, data: CreateRoomDto): Promise<number> {

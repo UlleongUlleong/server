@@ -32,7 +32,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = exceptionResponse.message || message;
       error = exceptionResponse.error || 'Bad Request';
 
-      this.logger.error(`[${method}] ${originalUrl} - ${error}`);
+      this.logger.error(`[${method}] ${originalUrl} ${req.ip} - ${error}`);
     } else if (
       Array.isArray(exception) &&
       exception.every((error) => error instanceof ValidationError)
@@ -41,9 +41,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = this.combineValidationException(exception);
       error = 'Validation Error';
 
-      this.logger.error(`[${method}] ${originalUrl} - ${error}`);
+      this.logger.error(`[${method}] ${originalUrl} ${req.ip} - ${error}`);
     } else {
-      this.logger.error(`[${method}] ${originalUrl} - ${exception.stack}`);
+      this.logger.error(
+        `[${method}] ${originalUrl} ${req.ip} - ${exception.stack}`,
+      );
     }
 
     res.status(status).json({

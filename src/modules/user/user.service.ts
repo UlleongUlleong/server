@@ -30,6 +30,7 @@ import { UpdatePasswordDto } from './dtos/update-password.dto';
 import { OAuthUserDto } from './dtos/oauth-user.dto';
 import { generateRandomCode } from 'src/common/utils/random-generator.util';
 import { S3Service } from 'src/common/modules/s3/s3.service';
+import { SafeUser } from './interfaces/safe-user.interface';
 
 @Injectable()
 export class UserService {
@@ -156,6 +157,21 @@ export class UserService {
     return user;
   }
 
+  async findEmailById(id: number): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        email: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    return user.email;
+  }
+
   async checkNicknameDuplication(nicknameDto: NicknameDto): Promise<void> {
     const { nickname } = nicknameDto;
     const profile = await this.findProfileByNickname(nickname);
@@ -250,7 +266,7 @@ export class UserService {
     return user;
   }
 
-  async updateUserStatus(user: User): Promise<boolean> {
+  async updateUserStatus(user: SafeUser): Promise<boolean> {
     const { isActive } = user;
 
     await this.prisma.user.update({
@@ -261,8 +277,8 @@ export class UserService {
     return !isActive;
   }
 
-  async deleteUser(user: User): Promise<void> {
-    const { email } = user;
+  async deleteUser(user: SafeUser): Promise<void> {
+    const email = await this.findEmailById(user.id);
 
     const redisKey = `verify:complete:users:${email}`;
     const isAllowed = await this.redis.get(redisKey);
@@ -365,7 +381,7 @@ export class UserService {
   }
 
   async resetPassword(
-    user: User,
+    user: SafeUser,
     updatePasswordDto: UpdatePasswordDto,
   ): Promise<void> {
     const { password, confirmPassword } = updatePasswordDto;

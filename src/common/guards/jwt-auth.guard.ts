@@ -7,10 +7,10 @@ import {
 import { UserPayload } from '../interfaces/user-payload.interface';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { TokenService } from 'src/modules/auth/token.service';
 import { checkNodeEnvIsProduction } from '../utils/environment.util';
+import { SafeUser } from '../../modules/user/interfaces/safe-user.interface';
 
 @Injectable()
 export class JwtAuthGuard {
@@ -31,7 +31,7 @@ export class JwtAuthGuard {
 
     try {
       const payload: UserPayload = await this.jwtService.verify(token);
-      const user: User = await this.findUserById(payload.sub);
+      const user: SafeUser = await this.findSafeUserById(payload.sub);
 
       request.user = user;
 
@@ -42,12 +42,13 @@ export class JwtAuthGuard {
           await this.tokenService.refreshAccessToken(token);
 
         const payload: UserPayload = await this.jwtService.decode(newToken);
-        const user: User = await this.findUserById(payload.sub);
+        const user: SafeUser = await this.findSafeUserById(payload.sub);
         request.user = user;
         response.cookie('access_token', newToken, {
           httpOnly: true,
-          secure: checkNodeEnvIsProduction(),
-          sameSite: checkNodeEnvIsProduction() ? 'none' : 'lax',
+          secure: true,
+          sameSite: checkNodeEnvIsProduction() ? 'strict' : 'none',
+          domain: checkNodeEnvIsProduction() ? '.sulleong.coderoom.site' : null,
           maxAge: maxAge ? 604799000 : null,
         });
 
@@ -58,9 +59,15 @@ export class JwtAuthGuard {
     }
   }
 
-  async findUserById(id: number): Promise<User> {
-    const user = await this.prisma.user.findUnique({
+  async findSafeUserById(id: number): Promise<SafeUser> {
+    const user: SafeUser = await this.prisma.user.findUnique({
       where: { id },
+      select: {
+        id: true,
+        providerId: true,
+        isActive: true,
+        deletedAt: true,
+      },
     });
 
     if (!user) {

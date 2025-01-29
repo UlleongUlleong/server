@@ -1,7 +1,7 @@
-import { User } from '@prisma/client';
+import { SafeUser } from '../../../modules/user/interfaces/safe-user.interface';
 
 export interface AuthenticateRequest extends Request {
-  user: User;
+  user: SafeUser;
   token?: string;
   cookies?: { [key: string]: string };
 }
