@@ -33,7 +33,7 @@ export class AlcoholService {
               alcoholCategory: alcohol.alcoholCategory,
               scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
               reviewCount: alcohol.reviewCount,
-              imageUrl: alcohol.imageUrl,
+              imageUrl: process.env.AWS_S3_BUCKET_URL + alcohol.imageUrl,
             }))
           : alcoholList.slice(0, alcoholList.length - 1).map((alcohol) => ({
               id: alcohol.id,
@@ -41,7 +41,7 @@ export class AlcoholService {
               alcoholCategory: alcohol.alcoholCategory,
               scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
               reviewCount: alcohol.reviewCount,
-              imageUrl: alcohol.imageUrl,
+              imageUrl: process.env.AWS_S3_BUCKET_URL + alcohol.imageUrl,
             })),
       pagination,
     };
@@ -146,7 +146,7 @@ export class AlcoholService {
       alcoholCategory: alcoholInfo.alcoholCategory,
       scoreAverage: parseFloat(alcoholInfo.scoreAverage.toFixed(1)),
       reviewCount: alcoholInfo.reviewCount,
-      imageUrl: process.env.AWS_S3_OBJECT_URL + alcoholInfo.imageUrl,
+      imageUrl: process.env.AWS_S3_BUCKET_URL + alcoholInfo.imageUrl,
       price: alcoholInfo.price,
       origin: alcoholInfo.origin,
       interestCount: alcoholInfo.interestCount,
@@ -225,7 +225,7 @@ export class AlcoholService {
       comment: review.comment,
       user: {
         nickname: review.user.profile.nickname,
-        imageUrl: review.user.profile.imageUrl,
+        imageUrl: process.env.AWS_S3_BUCKET_URL + review.user.profile.imageUrl,
       },
     }));
     const pagination = await this.createCursorMeta(query, reviews);
