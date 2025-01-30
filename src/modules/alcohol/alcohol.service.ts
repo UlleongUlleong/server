@@ -146,7 +146,7 @@ export class AlcoholService {
       alcoholCategory: alcoholInfo.alcoholCategory,
       scoreAverage: parseFloat(alcoholInfo.scoreAverage.toFixed(1)),
       reviewCount: alcoholInfo.reviewCount,
-      imageUrl: alcoholInfo.imageUrl,
+      imageUrl: process.env.AWS_S3_OBJECT_URL + alcoholInfo.imageUrl,
       price: alcoholInfo.price,
       origin: alcoholInfo.origin,
       interestCount: alcoholInfo.interestCount,
