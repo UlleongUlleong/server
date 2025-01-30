@@ -43,7 +43,7 @@ export class S3Service {
     const command = new PutObjectCommand(uploadParams);
     await this.s3Client.send(command);
 
-    return `/profile-images/${fileName}`;
+    return `profile-images/${fileName}`;
   }
 
   async deleteFile(imageUrl: string): Promise<void> {
