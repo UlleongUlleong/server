@@ -7,9 +7,9 @@ import { CategoryModule } from './modules/category/category.module';
 import { AlcoholModule } from './modules/alcohol/alcohol.module';
 import { PrismaModule } from './common/modules/prisma/prisma.module';
 import { MailModule } from './modules/mail/mail.module';
-
 import { ChatModule } from './modules/chat/chat.module';
 import { checkNodeEnvIsProduction } from './common/utils/environment.util';
+import { OpenViduModule } from './modules/chat/openvidu/openvidu.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +23,7 @@ import { checkNodeEnvIsProduction } from './common/utils/environment.util';
     RedisModule,
     CategoryModule,
     AlcoholModule,
+    OpenViduModule,
   ],
 })
 export class AppModule {
