@@ -176,7 +176,7 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('me/profile/image')
+  @Put('me/profile/image')
   @UseInterceptors(FileInterceptor('profile_image'))
   async uploadProfileImage(
     @Req() req: AuthenticateRequest,
