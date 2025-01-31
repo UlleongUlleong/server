@@ -21,6 +21,7 @@ import { WsResponseInterceptor } from 'src/common/interceptors/ws-response.inter
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
+import { RoomIdResponse } from './interfaces/room-id-response.interface';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
@@ -65,7 +66,7 @@ export class ChatGateway {
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
-  ): Promise<WsContent<null>> {
+  ): Promise<WsContent<RoomIdResponse>> {
     const user = client.data.user;
     const room = await this.chatService.createChatRoom(user.id, createRoomDto);
 
@@ -73,7 +74,9 @@ export class ChatGateway {
 
     return {
       event: 'room_created',
-      data: null,
+      data: {
+        roomId: room,
+      },
     };
   }
 
@@ -107,9 +110,8 @@ export class ChatGateway {
     @ConnectedSocket() client: Socket,
   ): Promise<WsContent<null>> {
     const user = client.data.user;
-    const roomId = await this.chatService.deleteParticipant(user.id);
-    await this.chatService.createParticipant(user.id, roomId);
     const participant = await this.chatService.findParticipantById(user.id);
+    const roomId = await this.chatService.deleteParticipant(user.id);
 
     if (roomId) {
       client.leave(roomId.toString());

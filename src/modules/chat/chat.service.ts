@@ -7,6 +7,7 @@ import {
   OnApplicationShutdown,
   UnauthorizedException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
@@ -20,6 +21,7 @@ import { UserService } from '../user/user.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindByCursorDto } from './dtos/find-by-cursor.dto';
 import {
+  RoomResponse,
   RoomResponseByCursor,
   RoomResponseByOffset,
 } from './interfaces/room-response.interface';
@@ -449,5 +451,75 @@ export class ChatService implements OnApplicationShutdown {
     });
 
     return cookies['access_token'];
+  }
+
+  async findRoomById(roomId: number): Promise<RoomResponse> {
+    if (!roomId) {
+      throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
+    }
+
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        maxParticipants: true,
+        theme: {
+          select: {
+            imageUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new NotFoundException('채팅방을 찾을 수 없습니다.');
+    }
+
+    return {
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      maxParticipants: room.maxParticipants,
+      theme: room.theme.imageUrl,
+      participants: room._count.participants,
+    };
+  }
+
+  async findParticipants(roomId: number): Promise<UserWithNickname[]> {
+    if (!roomId) {
+      throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
+    }
+
+    const participants = await this.prisma.chatParticipant.findMany({
+      where: { roomId },
+      select: {
+        userId: true,
+        user: {
+          select: {
+            profile: {
+              select: {
+                nickname: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (participants.length === 0) {
+      throw new NotFoundException('참가자를 찾을 수 없습니다.');
+    }
+
+    return participants.map((participant) => ({
+      id: participant.userId,
+      nickname: participant.user.profile.nickname,
+    }));
   }
 }
