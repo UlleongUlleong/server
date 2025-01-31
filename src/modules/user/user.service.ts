@@ -76,7 +76,7 @@ export class UserService {
 
     return {
       nickname: user.profile.nickname,
-      imageUrl: process.env.AWS_S3_BUCKET_URL + user.profile.imageUrl,
+      imageUrl: user.profile.imageUrl,
       moodCategory: user.userMoodCategory?.map((value) => ({
         id: value.moodCategory.id,
         name: value.moodCategory.name,
@@ -339,7 +339,7 @@ export class UserService {
       id: item.alcohol.id,
       name: item.alcohol.name,
       scoreAverage: item.alcohol.scoreAverage,
-      imageUrl: process.env.AWS_S3_BUCKET_URL + item.alcohol.imageUrl,
+      imageUrl: item.alcohol.imageUrl,
     }));
     const pagination = await this.createCursorMeta(query, alcoholInfo);
     return { alcoholInfo, pagination };
