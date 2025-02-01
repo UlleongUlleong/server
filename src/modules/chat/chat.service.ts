@@ -4,7 +4,6 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  OnApplicationShutdown,
   UnauthorizedException,
   Logger,
   BadRequestException,
@@ -36,7 +35,7 @@ import { SendMessageDto } from './dtos/send-message.dto';
 import { SafeUser } from '../user/interfaces/safe-user.interface';
 
 @Injectable()
-export class ChatService implements OnApplicationShutdown {
+export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
   constructor(
@@ -51,11 +50,6 @@ export class ChatService implements OnApplicationShutdown {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleBatchSave() {
     await this.batchSaveMessagesToDB();
-  }
-  async onApplicationShutdown(signal?: string) {
-    this.logger.log(
-      `All connected chat client information has been deleted from Redis.: ${signal}`,
-    );
   }
 
   async validateToken(token: string): Promise<SafeUser> {
@@ -165,7 +159,7 @@ export class ChatService implements OnApplicationShutdown {
           where: { userId: hostCandidate.userId },
           data: { isHost: true },
         });
-      } else {
+      } else if (participant.isHost) {
         await tx.chatRoom.update({
           where: { id: roomId },
           data: { deletedAt: new Date() },
@@ -202,13 +196,17 @@ export class ChatService implements OnApplicationShutdown {
     sendMessageDto: SendMessageDto,
   ): Promise<NewMessage> {
     const key = `chat:messages`;
-
     const newMessage = {
       userId,
       roomId,
       message: sendMessageDto.message,
       createdAt: new Date().toISOString(),
     };
+
+    if (!roomId) {
+      throw new NotFoundException('참가한 채팅방을 찾을 수 없습니다.');
+    }
+
     await this.redis.lpush(key, JSON.stringify(newMessage));
     const participant = await this.findParticipantById(userId);
     delete newMessage.roomId;
@@ -219,17 +217,13 @@ export class ChatService implements OnApplicationShutdown {
     };
   }
 
-  async getRoomIdByUserId(userId: number): Promise<number | null> {
+  async findRoomByUserId(userId: number): Promise<number | null> {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { userId },
       select: { roomId: true },
     });
 
-    if (!participant) {
-      throw new BadRequestException('참여한 채팅방이 없습니다.');
-    }
-
-    return participant.roomId;
+    return participant?.roomId;
   }
 
   async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
