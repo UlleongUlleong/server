@@ -55,14 +55,19 @@ export class ChatGateway {
   }
 
   async handleDisconnect(client: Socket) {
-    const clientId = client.id;
-    const user = client.data.user;
-    if (user) {
-      await this.handleLeaveRoom(client);
+    try {
+      const clientId = client.id;
+      const user = client.data.user;
+      const roomId = await this.chatService.findRoomByUserId(user.id);
+      if (roomId) {
+        await this.handleLeaveRoom(client);
+      }
+      this.logger.log(
+        `Socket client(${clientId}) has disconnected from the server.`,
+      );
+    } catch (error) {
+      this.logger.error(`${client.id} - ${error.stack}`);
     }
-    this.logger.log(
-      `Socket client(${clientId}) has disconnected from the server.`,
-    );
   }
 
   @SubscribeMessage('create_room')
