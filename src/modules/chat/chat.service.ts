@@ -137,11 +137,11 @@ export class ChatService {
     });
 
     if (!participant) {
-      throw new NotFoundException('참가한 채팅방이 없습니다.');
+      return;
     }
 
     const roomId = participant.roomId;
-    let hostCandidate;
+    let hostCandidate: { userId: number } | undefined;
     if (participant.isHost) {
       hostCandidate = await this.prisma.chatParticipant.findFirst({
         where: { roomId, userId: { not: userId } },
