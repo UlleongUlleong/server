@@ -37,6 +37,11 @@ export class ChatGateway {
       const cookieHeader = client.handshake.headers.cookie;
       const token = this.chatService.getAccessTokenFromCookie(cookieHeader);
       const user = await this.chatService.validateToken(token);
+      const roomId = await this.chatService.findRoomByUserId(user.id);
+
+      if (roomId) {
+        client.join(roomId.toString());
+      }
 
       const clientId = client.id;
       client.data.user = user;
@@ -110,8 +115,8 @@ export class ChatGateway {
     @ConnectedSocket() client: Socket,
   ): Promise<WsContent<null>> {
     const user = client.data.user;
-    const participant = await this.chatService.findParticipantById(user.id);
     const roomId = await this.chatService.deleteParticipant(user.id);
+    const participant = await this.chatService.findParticipantById(user.id);
 
     if (roomId) {
       client.leave(roomId.toString());
@@ -135,7 +140,7 @@ export class ChatGateway {
     @MessageBody() sendMessageDto: SendMessageDto,
   ): Promise<WsContent<null>> {
     const user = client.data.user;
-    const roomId = await this.chatService.getRoomIdByUserId(user.id);
+    const roomId = await this.chatService.findRoomByUserId(user.id);
     const message = await this.chatService.saveMessageToRedis(
       roomId,
       user.id,
