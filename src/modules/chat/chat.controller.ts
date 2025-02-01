@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { FindByCursorDto } from './dtos/find-by-cursor.dto';
 import { HttpContent } from '../../common/interfaces/http-response.interface';
-import { RoomResponse } from './interfaces/room-response.interface';
+import { RoomInfo } from './interfaces/room-info.interface';
 import { ChatService } from './chat.service';
 import { FindByOffsetDto } from './dtos/find-by-offset.dto';
 import { UserWithNickname } from './interfaces/user-with-nickname.interface';
@@ -13,7 +13,7 @@ export class ChatController {
   @Get('rooms/offset')
   async getChatRoomsByOffset(
     @Query() findRoomDto: FindByOffsetDto,
-  ): Promise<HttpContent<RoomResponse[]>> {
+  ): Promise<HttpContent<RoomInfo[]>> {
     const { data, pagination } =
       await this.chatService.findRoomsByOffset(findRoomDto);
 
@@ -27,7 +27,7 @@ export class ChatController {
   @Get('rooms/cursor')
   async getChatRoomsByCursor(
     @Query() findRoomDto: FindByCursorDto,
-  ): Promise<HttpContent<RoomResponse[]>> {
+  ): Promise<HttpContent<RoomInfo[]>> {
     const { data, pagination } =
       await this.chatService.findRoomsByCursor(findRoomDto);
 
@@ -41,7 +41,7 @@ export class ChatController {
   @Get('rooms/:id')
   async getChatRoomById(
     @Param('id') id: string,
-  ): Promise<HttpContent<RoomResponse>> {
+  ): Promise<HttpContent<RoomInfo>> {
     const roomId = parseInt(id);
     const room = await this.chatService.findRoomById(roomId);
 
