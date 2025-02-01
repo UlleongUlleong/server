@@ -21,7 +21,8 @@ import { WsResponseInterceptor } from 'src/common/interceptors/ws-response.inter
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
-import { RoomIdResponse } from './interfaces/room-id-response.interface';
+import { CreateRoomResponse } from './interfaces/create-room-response.interface';
+import { UserWithNickname } from './interfaces/user-with-nickname.interface';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
@@ -55,14 +56,18 @@ export class ChatGateway {
   }
 
   async handleDisconnect(client: Socket) {
-    const clientId = client.id;
-    const user = client.data.user;
-    if (user) {
-      await this.handleLeaveRoom(client);
+    try {
+      const clientId = client.id;
+      const user = client.data.user;
+      if (user) {
+        await this.handleLeaveRoom(client);
+      }
+      this.logger.log(
+        `Socket client(${clientId}) has disconnected from the server.`,
+      );
+    } catch (error) {
+      this.logger.error(`${client.id} - ${error.stack}`);
     }
-    this.logger.log(
-      `Socket client(${clientId}) has disconnected from the server.`,
-    );
   }
 
   @SubscribeMessage('create_room')
@@ -71,16 +76,22 @@ export class ChatGateway {
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
-  ): Promise<WsContent<RoomIdResponse>> {
+  ): Promise<WsContent<CreateRoomResponse>> {
     const user = client.data.user;
-    const room = await this.chatService.createChatRoom(user.id, createRoomDto);
+    const roomId = await this.chatService.createChatRoom(
+      user.id,
+      createRoomDto,
+    );
+    const participant = await this.chatService.findParticipantById(user.id);
 
-    client.join(room.toString());
+    client.join(roomId.toString());
 
     return {
       event: 'room_created',
       data: {
-        roomId: room,
+        roomId,
+        userId: participant.id,
+        nickname: participant.nickname,
       },
     };
   }
@@ -91,7 +102,7 @@ export class ChatGateway {
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
-  ): Promise<WsContent<null>> {
+  ): Promise<WsContent<UserWithNickname>> {
     const user = client.data.user;
     const roomId = joinRoomDto.roomId;
     await this.chatService.createParticipant(user.id, roomId);
@@ -105,7 +116,7 @@ export class ChatGateway {
 
     return {
       event: 'room_joined',
-      data: null,
+      data: participant,
     };
   }
 

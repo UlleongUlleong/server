@@ -20,10 +20,10 @@ import { UserService } from '../user/user.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindByCursorDto } from './dtos/find-by-cursor.dto';
 import {
-  RoomResponse,
-  RoomResponseByCursor,
-  RoomResponseByOffset,
-} from './interfaces/room-response.interface';
+  RoomInfo,
+  RoomInfoByCursor,
+  RoomInfoByOffset,
+} from './interfaces/room-info.interface';
 import { FindByOffsetDto } from './dtos/find-by-offset.dto';
 import {
   CursorPagination,
@@ -108,6 +108,7 @@ export class ChatService {
 
     const room = await this.prisma.chatRoom.create({
       data: newRoom,
+      select: { id: true },
     });
 
     return room.id;
@@ -137,11 +138,11 @@ export class ChatService {
     });
 
     if (!participant) {
-      throw new NotFoundException('참가한 채팅방이 없습니다.');
+      return;
     }
 
     const roomId = participant.roomId;
-    let hostCandidate;
+    let hostCandidate: { userId: number } | undefined;
     if (participant.isHost) {
       hostCandidate = await this.prisma.chatParticipant.findFirst({
         where: { roomId, userId: { not: userId } },
@@ -253,7 +254,7 @@ export class ChatService {
 
   async findRoomsByOffset(
     findRoomDto: FindByOffsetDto,
-  ): Promise<RoomResponseByOffset> {
+  ): Promise<RoomInfoByOffset> {
     const {
       sort,
       alcoholCategory,
@@ -313,7 +314,7 @@ export class ChatService {
 
   async findRoomsByCursor(
     findRoomDto: FindByCursorDto,
-  ): Promise<RoomResponseByCursor> {
+  ): Promise<RoomInfoByCursor> {
     const {
       sort,
       alcoholCategory,
@@ -451,7 +452,7 @@ export class ChatService {
     return cookies['access_token'];
   }
 
-  async findRoomById(roomId: number): Promise<RoomResponse> {
+  async findRoomById(roomId: number): Promise<RoomInfo> {
     if (!roomId) {
       throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
     }
