@@ -165,7 +165,7 @@ export class ChatService implements OnApplicationShutdown {
           where: { userId: hostCandidate.userId },
           data: { isHost: true },
         });
-      } else {
+      } else if (participant.isHost) {
         await tx.chatRoom.update({
           where: { id: roomId },
           data: { deletedAt: new Date() },
