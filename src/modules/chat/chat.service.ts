@@ -225,7 +225,11 @@ export class ChatService implements OnApplicationShutdown {
       select: { roomId: true },
     });
 
-    return participant?.roomId || null;
+    if (!participant) {
+      throw new BadRequestException('참여한 채팅방이 없습니다.');
+    }
+
+    return participant.roomId;
   }
 
   async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
