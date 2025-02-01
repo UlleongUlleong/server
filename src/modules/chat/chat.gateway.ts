@@ -136,12 +136,6 @@ export class ChatGateway {
   ): Promise<WsContent<null>> {
     const user = client.data.user;
     const roomId = await this.chatService.getRoomIdByUserId(user.id);
-    if (!roomId) {
-      return {
-        event: 'error',
-        data: null,
-      };
-    }
     const message = await this.chatService.saveMessageToRedis(
       roomId,
       user.id,
