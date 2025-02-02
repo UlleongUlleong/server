@@ -1,9 +1,11 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
 
 @Injectable()
 export class S3Service {
@@ -22,40 +24,36 @@ export class S3Service {
     this.bucketName = process.env.AWS_S3_BUCKET_NAME;
   }
 
-  async uploadFile(
-    file: Express.Multer.File,
-    userId?: number,
-  ): Promise<string> {
-    console.log('s3', file, userId);
+  async uploadFile(file: Express.Multer.File): Promise<string> {
+    console.log(file.originalname);
+    const fileExtension = path.extname(file.originalname);
+    const fileName = uuidv4() + fileExtension;
+    const allowedMimeTypes = ['image/png', 'image/jpeg'];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('잘못된 파일 형식입니다.');
+    }
+
     const uploadParams = {
       Bucket: this.bucketName,
-      Key: `profile-images/${userId}`,
+      Key: `profile-images/${fileName}`,
       Body: file.buffer,
       ContentType: file.mimetype,
     };
+    const command = new PutObjectCommand(uploadParams);
+    await this.s3Client.send(command);
 
-    try {
-      const command = new PutObjectCommand(uploadParams);
-      await this.s3Client.send(command);
-
-      return `https://${this.bucketName}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/profile-images/${userId}`;
-    } catch {
-      throw new InternalServerErrorException('프로필 사진진 업로드 실패');
-    }
+    return `profile-images/${fileName}`;
   }
 
-  async deleteFile(userId: number): Promise<void> {
+  async deleteFile(imageUrl: string): Promise<void> {
     const deletePrams = {
       Bucket: this.bucketName,
-      Key: `profile-images/${userId}`,
+      Key: imageUrl,
     };
 
-    try {
-      const commeand = new DeleteObjectCommand(deletePrams);
-      await this.s3Client.send(commeand);
-      return;
-    } catch {
-      throw new InternalServerErrorException('프로필 사진 삭제 실패');
-    }
+    const commeand = new DeleteObjectCommand(deletePrams);
+    await this.s3Client.send(commeand);
+    return;
   }
 }

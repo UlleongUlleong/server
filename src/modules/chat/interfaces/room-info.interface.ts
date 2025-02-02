@@ -3,7 +3,7 @@ import {
   OffsetPagination,
 } from '../../../common/interfaces/pagination.interface';
 
-export interface RoomResponse {
+export interface RoomInfo {
   id: number;
   name: string;
   description?: string;
@@ -12,12 +12,12 @@ export interface RoomResponse {
   participants: number;
 }
 
-export interface RoomResponseByOffset {
-  data: RoomResponse[];
+export interface RoomInfoByOffset {
+  data: RoomInfo[];
   pagination: OffsetPagination;
 }
 
-export interface RoomResponseByCursor {
-  data: RoomResponse[];
+export interface RoomInfoByCursor {
+  data: RoomInfo[];
   pagination: CursorPagination;
 }

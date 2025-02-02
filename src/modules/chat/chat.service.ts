@@ -4,9 +4,9 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  OnApplicationShutdown,
   UnauthorizedException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/modules/prisma/prisma.service';
 import { CreateRoomDto } from './dtos/create-room.dto';
@@ -20,9 +20,10 @@ import { UserService } from '../user/user.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindByCursorDto } from './dtos/find-by-cursor.dto';
 import {
-  RoomResponseByCursor,
-  RoomResponseByOffset,
-} from './interfaces/room-response.interface';
+  RoomInfo,
+  RoomInfoByCursor,
+  RoomInfoByOffset,
+} from './interfaces/room-info.interface';
 import { FindByOffsetDto } from './dtos/find-by-offset.dto';
 import {
   CursorPagination,
@@ -34,7 +35,7 @@ import { SendMessageDto } from './dtos/send-message.dto';
 import { SafeUser } from '../user/interfaces/safe-user.interface';
 
 @Injectable()
-export class ChatService implements OnApplicationShutdown {
+export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
   constructor(
@@ -49,11 +50,6 @@ export class ChatService implements OnApplicationShutdown {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleBatchSave() {
     await this.batchSaveMessagesToDB();
-  }
-  async onApplicationShutdown(signal?: string) {
-    this.logger.log(
-      `All connected chat client information has been deleted from Redis.: ${signal}`,
-    );
   }
 
   async validateToken(token: string): Promise<SafeUser> {
@@ -112,6 +108,7 @@ export class ChatService implements OnApplicationShutdown {
 
     const room = await this.prisma.chatRoom.create({
       data: newRoom,
+      select: { id: true },
     });
 
     return room.id;
@@ -141,11 +138,11 @@ export class ChatService implements OnApplicationShutdown {
     });
 
     if (!participant) {
-      throw new NotFoundException('참가한 채팅방이 없습니다.');
+      return;
     }
 
     const roomId = participant.roomId;
-    let hostCandidate;
+    let hostCandidate: { userId: number } | undefined;
     if (participant.isHost) {
       hostCandidate = await this.prisma.chatParticipant.findFirst({
         where: { roomId, userId: { not: userId } },
@@ -163,7 +160,7 @@ export class ChatService implements OnApplicationShutdown {
           where: { userId: hostCandidate.userId },
           data: { isHost: true },
         });
-      } else {
+      } else if (participant.isHost) {
         await tx.chatRoom.update({
           where: { id: roomId },
           data: { deletedAt: new Date() },
@@ -200,13 +197,17 @@ export class ChatService implements OnApplicationShutdown {
     sendMessageDto: SendMessageDto,
   ): Promise<NewMessage> {
     const key = `chat:messages`;
-
     const newMessage = {
       userId,
       roomId,
       message: sendMessageDto.message,
       createdAt: new Date().toISOString(),
     };
+
+    if (!roomId) {
+      throw new NotFoundException('참가한 채팅방을 찾을 수 없습니다.');
+    }
+
     await this.redis.lpush(key, JSON.stringify(newMessage));
     const participant = await this.findParticipantById(userId);
     delete newMessage.roomId;
@@ -217,13 +218,13 @@ export class ChatService implements OnApplicationShutdown {
     };
   }
 
-  async getRoomIdByUserId(userId: number): Promise<number | null> {
+  async findRoomByUserId(userId: number): Promise<number | null> {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { userId },
       select: { roomId: true },
     });
 
-    return participant?.roomId || null;
+    return participant?.roomId;
   }
 
   async batchSaveMessagesToDB(batchSize: number = 100): Promise<void> {
@@ -253,7 +254,7 @@ export class ChatService implements OnApplicationShutdown {
 
   async findRoomsByOffset(
     findRoomDto: FindByOffsetDto,
-  ): Promise<RoomResponseByOffset> {
+  ): Promise<RoomInfoByOffset> {
     const {
       sort,
       alcoholCategory,
@@ -313,7 +314,7 @@ export class ChatService implements OnApplicationShutdown {
 
   async findRoomsByCursor(
     findRoomDto: FindByCursorDto,
-  ): Promise<RoomResponseByCursor> {
+  ): Promise<RoomInfoByCursor> {
     const {
       sort,
       alcoholCategory,
@@ -449,5 +450,75 @@ export class ChatService implements OnApplicationShutdown {
     });
 
     return cookies['access_token'];
+  }
+
+  async findRoomById(roomId: number): Promise<RoomInfo> {
+    if (!roomId) {
+      throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
+    }
+
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        maxParticipants: true,
+        theme: {
+          select: {
+            imageUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new NotFoundException('채팅방을 찾을 수 없습니다.');
+    }
+
+    return {
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      maxParticipants: room.maxParticipants,
+      theme: room.theme.imageUrl,
+      participants: room._count.participants,
+    };
+  }
+
+  async findParticipants(roomId: number): Promise<UserWithNickname[]> {
+    if (!roomId) {
+      throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
+    }
+
+    const participants = await this.prisma.chatParticipant.findMany({
+      where: { roomId },
+      select: {
+        userId: true,
+        user: {
+          select: {
+            profile: {
+              select: {
+                nickname: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (participants.length === 0) {
+      throw new NotFoundException('참가자를 찾을 수 없습니다.');
+    }
+
+    return participants.map((participant) => ({
+      id: participant.userId,
+      nickname: participant.user.profile.nickname,
+    }));
   }
 }

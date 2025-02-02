@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -44,6 +43,12 @@ export class UserService {
   async findProfileByNickname(nickname: string): Promise<Profile> {
     return await this.prisma.profile.findUnique({
       where: { nickname },
+    });
+  }
+
+  async findProfileById(userId: number): Promise<Profile> {
+    return await this.prisma.profile.findUnique({
+      where: { userId },
     });
   }
 
@@ -244,7 +249,7 @@ export class UserService {
       profile: {
         create: {
           nickname,
-          imageUrl: process.env.AWS_S3_DEFAULT_PROFILE_IMGAE_URL,
+          imageUrl: process.env.AWS_S3_DEFAULT_PROFILE,
         },
       },
       userAlcoholCategory: {
@@ -425,23 +430,31 @@ export class UserService {
     userId: number,
     file: Express.Multer.File,
   ): Promise<void> {
-    try {
-      const uploadResult = await this.s3service.uploadFile(file, userId);
-      await this.prisma.profile.update({
-        where: { userId: userId },
-        data: { imageUrl: uploadResult },
-      });
-      return;
-    } catch {
-      throw new InternalServerErrorException('서버 에러');
-    }
+    await this.deleteProfileImage(userId);
+    const uploadResult = await this.s3service.uploadFile(file);
+
+    await this.prisma.profile.update({
+      where: { userId: userId },
+      data: { imageUrl: uploadResult },
+    });
+
+    return;
   }
 
   async deleteProfileImage(userId: number): Promise<void> {
-    await this.s3service.deleteFile(userId);
+    const profile: Profile = await this.findProfileById(userId);
+    if (!profile) {
+      throw new NotFoundException('사용자의 프로필을 찾을 수 없습니다.');
+    }
+
+    if (profile.imageUrl === process.env.AWS_S3_DEFAULT_PROFILE) {
+      return;
+    }
+
+    await this.s3service.deleteFile(profile.imageUrl);
     await this.prisma.profile.update({
       where: { userId: userId },
-      data: { imageUrl: process.env.AWS_S3_DEFAULT_PROFILE_IMGAE_URL },
+      data: { imageUrl: process.env.AWS_S3_DEFAULT_PROFILE },
     });
     return;
   }
