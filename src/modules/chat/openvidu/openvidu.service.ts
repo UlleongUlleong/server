@@ -16,16 +16,15 @@ export class OpenViduService {
     this.openvidu = new OpenVidu(openviduUrl, openviduSecret);
   }
 
-  async createSession(sessionId: string): Promise<string> {
-    if (this.sessions.has(sessionId)) {
-      return this.sessions.get(sessionId).sessionId;
+  async createSession(roomId: string): Promise<string> {
+    if (this.sessions.has(roomId)) {
+      return this.sessions.get(roomId).sessionId;
     }
     const session = await this.openvidu.createSession({
-      customSessionId: sessionId,
+      customSessionId: roomId,
     });
-    this.sessions.set(sessionId, session);
+    this.sessions.set(roomId, session);
     this.logger.log(`created session: ${session.sessionId}`);
-    console.log(this.sessions);
     return session.sessionId;
   }
 
