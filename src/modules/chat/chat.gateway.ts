@@ -22,14 +22,18 @@ import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor'
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 import { CreateRoomResponse } from './interfaces/create-room-response.interface';
-import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import { responseJoinRoom } from './interfaces/user-with-nickname.interface';
+import { OpenViduService } from './openvidu.service';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
 export class ChatGateway {
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private openviduService: OpenViduService,
+  ) {}
 
   @WebSocketServer() server: Server;
 
@@ -85,10 +89,15 @@ export class ChatGateway {
     const participant = await this.chatService.findParticipantById(user.id);
 
     client.join(roomId.toString());
-
+    const sessionId = await this.openviduService.createSession(
+      roomId.toString(),
+    );
+    const token = await this.openviduService.createToken(sessionId);
     return {
       event: 'room_created',
       data: {
+        sessionId,
+        token,
         roomId,
         userId: participant.id,
         nickname: participant.nickname,
@@ -102,7 +111,7 @@ export class ChatGateway {
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
-  ): Promise<WsContent<UserWithNickname>> {
+  ): Promise<WsContent<responseJoinRoom>> {
     const user = client.data.user;
     const roomId = joinRoomDto.roomId;
     await this.chatService.createParticipant(user.id, roomId);
@@ -113,10 +122,10 @@ export class ChatGateway {
       data: participant,
       message: `${participant.nickname}님이 채팅방에 입장했습니다.`,
     });
-
+    const token = await this.openviduService.createToken(roomId.toString());
     return {
       event: 'room_joined',
-      data: participant,
+      data: { participant, token },
     };
   }
 
