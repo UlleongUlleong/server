@@ -80,6 +80,11 @@ $ git push origin main # CI/CD 자동 배포 트리거
 - **REST API:** [Postman Collection](https://documenter.getpostman.com/view/34914899/2sAYJ9AdiL)  
 - **WebSocket Event:** [Notion](https://www.notion.so/dd2996b66d7748548db6332fa04ff7ad?pvs=4)
 
+## 🛠 Architecture
+
+![Image](https://github.com/user-attachments/assets/2c399ec4-f1ca-4cd2-8de3-1273ffa3dcfc)
+
+
 ## 💾 데이터베이스 스키마
 - **ERD:** [ERD Cloud](https://www.erdcloud.com/d/REgwL6a88noB3Wpoc)
 
