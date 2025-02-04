@@ -179,7 +179,7 @@ export class ChatService {
       try {
         const deletedUser = await this.prisma.$transaction(async (tx) => {
           if (participant.isHost) {
-            const isDelegated = this.delegateHost(participant.roomId);
+            const isDelegated = await this.delegateHost(participant.roomId);
             if (!isDelegated) {
               await tx.chatRoom.update({
                 where: { id: participant.roomId },
@@ -196,11 +196,7 @@ export class ChatService {
               roomId: true,
               user: {
                 select: {
-                  profile: {
-                    select: {
-                      nickname: true,
-                    },
-                  },
+                  profile: true,
                 },
               },
             },
@@ -491,13 +487,13 @@ export class ChatService {
   }
 
   async findParticipantById(userId: number): Promise<UserProfile> {
-    const participant = await this.prisma.user.findUnique({
-      where: { id: userId },
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
       select: {
-        id: true,
-        profile: {
+        userId: true,
+        user: {
           select: {
-            nickname: true,
+            profile: true,
           },
         },
       },
@@ -508,9 +504,21 @@ export class ChatService {
     }
 
     return {
-      userId: participant.id,
-      nickname: participant.profile.nickname,
+      userId: participant.userId,
+      nickname: participant.user.profile.nickname,
     };
+  }
+
+  async isUserInRoom(userId: number): Promise<boolean> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
+    });
+
+    if (!participant) {
+      return false;
+    }
+
+    return true;
   }
 
   getAccessTokenFromCookie(cookieHeader: string): string {

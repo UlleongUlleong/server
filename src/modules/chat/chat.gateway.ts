@@ -61,7 +61,7 @@ export class ChatGateway {
     try {
       const clientId = client.id;
       const user = client.data.user;
-      if (user) {
+      if (user && (await this.chatService.isUserInRoom(user.id))) {
         await this.handleLeaveRoom(client);
       }
       this.logger.log(
