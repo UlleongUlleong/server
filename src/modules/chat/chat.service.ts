@@ -33,6 +33,7 @@ import { UserWithNickname } from './interfaces/user-with-nickname.interface';
 import { NewMessage } from './interfaces/new-message.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 import { SafeUser } from '../user/interfaces/safe-user.interface';
+import { ParticipantInfo } from './interfaces/participant-info.interface';
 
 @Injectable()
 export class ChatService {
@@ -114,7 +115,10 @@ export class ChatService {
     return room.id;
   }
 
-  async createParticipant(userId: number, roomId: number): Promise<void> {
+  async createParticipant(
+    userId: number,
+    roomId: number,
+  ): Promise<ParticipantInfo> {
     await this.checkParticipantDuplication(userId);
     await this.checkRoomIdExists(roomId);
 
@@ -127,9 +131,35 @@ export class ChatService {
       },
     };
 
-    await this.prisma.chatParticipant.create({
+    const participant = await this.prisma.chatParticipant.create({
       data: newParticipant,
+      select: {
+        chatRoom: {
+          select: {
+            name: true,
+            themeId: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            profile: {
+              select: {
+                nickname: true,
+              },
+            },
+          },
+        },
+      },
     });
+    this.logger.log(`${userId}번 사용자가 ${roomId}번 채팅방에 참여`);
+
+    return {
+      userId: participant.user.id,
+      nickname: participant.user.profile.nickname,
+      themeId: participant.chatRoom.themeId,
+      roomName: participant.chatRoom.name,
+    };
   }
 
   async deleteParticipant(userId: number): Promise<number> {
@@ -138,6 +168,7 @@ export class ChatService {
     });
 
     if (!participant) {
+      this.logger.log(`${userId}번 사용자가 채팅방에 속해있지 않음.`);
       return;
     }
 
@@ -154,17 +185,22 @@ export class ChatService {
       await tx.chatParticipant.delete({
         where: { userId },
       });
+      this.logger.log(`${userId}번 사용자 삭제`);
 
       if (hostCandidate) {
         await tx.chatParticipant.update({
           where: { userId: hostCandidate.userId },
           data: { isHost: true },
         });
+        this.logger.log(
+          `${userId}번 사용자에서 ${hostCandidate.userId}번 사용자로 방장 변경.`,
+        );
       } else if (participant.isHost) {
         await tx.chatRoom.update({
           where: { id: roomId },
           data: { deletedAt: new Date() },
         });
+        this.logger.log(`${roomId}번 방 삭제`);
       }
     });
 

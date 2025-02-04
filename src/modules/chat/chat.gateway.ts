@@ -22,7 +22,7 @@ import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor'
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 import { CreateRoomResponse } from './interfaces/create-room-response.interface';
-import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import { ParticipantInfo } from './interfaces/participant-info.interface';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
@@ -102,11 +102,13 @@ export class ChatGateway {
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
-  ): Promise<WsContent<UserWithNickname>> {
+  ): Promise<WsContent<ParticipantInfo>> {
     const user = client.data.user;
     const roomId = joinRoomDto.roomId;
-    await this.chatService.createParticipant(user.id, roomId);
-    const participant = await this.chatService.findParticipantById(user.id);
+    const participant = await this.chatService.createParticipant(
+      user.id,
+      roomId,
+    );
 
     client.join(roomId.toString());
     this.server.to(roomId.toString()).emit('user_joined', {
