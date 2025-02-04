@@ -244,7 +244,7 @@ export class ChatService {
       userId: message.userId,
       roomId: message.roomId,
       message: message.message,
-      loggedAt: new Date(message.createdAt),
+      loggedAt: message.createdAt,
     }));
 
     await this.prisma.chatLog.createMany({
