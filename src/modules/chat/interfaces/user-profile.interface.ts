@@ -11,3 +11,12 @@ export interface RoomEntryInfo extends UserProfile {
 export interface UserRoomInfo extends UserProfile {
   roomId: number;
 }
+
+export interface ResponseCreateRoom extends UserRoomInfo {
+  sessionId: string;
+  token: string;
+}
+
+export interface ResponseJoinRoom extends RoomEntryInfo {
+  token: string;
+}

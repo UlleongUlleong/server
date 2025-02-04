@@ -22,16 +22,20 @@ import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor'
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 import {
-  RoomEntryInfo,
-  UserRoomInfo,
+  ResponseCreateRoom,
+  ResponseJoinRoom,
 } from './interfaces/user-profile.interface';
+import { OpenViduService } from './openvidu.service';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
 export class ChatGateway {
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private openviduService: OpenViduService,
+  ) {}
 
   @WebSocketServer() server: Server;
 
@@ -78,19 +82,24 @@ export class ChatGateway {
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
-  ): Promise<WsContent<UserRoomInfo>> {
+  ): Promise<WsContent<ResponseCreateRoom>> {
     const user = client.data.user;
     const roomId = await this.chatService.createChatRoom(
       user.id,
       createRoomDto,
     );
     const participant = await this.chatService.findParticipantById(user.id);
-
+    const sessionId = await this.openviduService.createSession(
+      roomId.toString(),
+    );
+    const token = await this.openviduService.createToken(sessionId);
     client.join(roomId.toString());
 
     return {
       event: 'room_created',
       data: {
+        sessionId,
+        token,
         roomId,
         userId: participant.userId,
         nickname: participant.nickname,
@@ -104,14 +113,14 @@ export class ChatGateway {
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
-  ): Promise<WsContent<RoomEntryInfo>> {
+  ): Promise<WsContent<ResponseJoinRoom>> {
     const user = client.data.user;
     const roomId = joinRoomDto.roomId;
     const userEntryInfo = await this.chatService.createParticipant(
       user.id,
       roomId,
     );
-
+    const token = await this.openviduService.createToken(roomId.toString());
     client.join(roomId.toString());
     client.to(roomId.toString()).emit('user_joined', {
       data: { userId: userEntryInfo.userId, nickname: userEntryInfo.nickname },
@@ -120,7 +129,7 @@ export class ChatGateway {
 
     return {
       event: 'room_joined',
-      data: userEntryInfo,
+      data: { ...userEntryInfo, token },
     };
   }
 
