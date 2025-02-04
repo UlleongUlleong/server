@@ -29,11 +29,14 @@ import {
   CursorPagination,
   OffsetPagination,
 } from '../../common/interfaces/pagination.interface';
-import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import {
+  RoomEntryInfo,
+  UserRoomInfo,
+  UserProfile,
+} from './interfaces/user-profile.interface';
 import { NewMessage } from './interfaces/new-message.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 import { SafeUser } from '../user/interfaces/safe-user.interface';
-import { ParticipantInfo } from './interfaces/participant-info.interface';
 
 @Injectable()
 export class ChatService {
@@ -111,6 +114,7 @@ export class ChatService {
       data: newRoom,
       select: { id: true },
     });
+    this.logger.log(`${userId}번 사용자가 ${room.id}번 채팅방을 생성`);
 
     return room.id;
   }
@@ -118,7 +122,7 @@ export class ChatService {
   async createParticipant(
     userId: number,
     roomId: number,
-  ): Promise<ParticipantInfo> {
+  ): Promise<RoomEntryInfo> {
     await this.checkParticipantDuplication(userId);
     await this.checkRoomIdExists(roomId);
 
@@ -162,49 +166,84 @@ export class ChatService {
     };
   }
 
-  async deleteParticipant(userId: number): Promise<number> {
+  async deleteParticipant(userId: number): Promise<UserRoomInfo> {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { userId },
     });
 
     if (!participant) {
-      this.logger.log(`${userId}번 사용자가 채팅방에 속해있지 않음.`);
-      return;
+      throw new NotFoundException('참가자를 찾을 수 없습니다.');
     }
 
-    const roomId = participant.roomId;
-    let hostCandidate: { userId: number } | undefined;
-    if (participant.isHost) {
-      hostCandidate = await this.prisma.chatParticipant.findFirst({
-        where: { roomId, userId: { not: userId } },
-        orderBy: { joinedAt: 'asc' },
-        select: { userId: true },
-      });
-    }
-    await this.prisma.$transaction(async (tx) => {
-      await tx.chatParticipant.delete({
-        where: { userId },
-      });
-      this.logger.log(`${userId}번 사용자 삭제`);
+    for (let attempt = 0; attempt < 10; ++attempt) {
+      try {
+        const deletedUser = await this.prisma.$transaction(async (tx) => {
+          if (participant.isHost) {
+            const isDelegated = this.delegateHost(participant.roomId);
+            if (!isDelegated) {
+              await tx.chatRoom.update({
+                where: { id: participant.roomId },
+                data: { deletedAt: new Date() },
+              });
+              this.logger.log(`${participant.roomId}번 방이 삭제되었습니다.`);
+            }
+          }
 
-      if (hostCandidate) {
-        await tx.chatParticipant.update({
-          where: { userId: hostCandidate.userId },
-          data: { isHost: true },
+          return await tx.chatParticipant.delete({
+            where: { userId },
+            select: {
+              userId: true,
+              roomId: true,
+              user: {
+                select: {
+                  profile: {
+                    select: {
+                      nickname: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
         });
+
         this.logger.log(
-          `${userId}번 사용자에서 ${hostCandidate.userId}번 사용자로 방장 변경.`,
+          `${userId}번 사용자가 ${participant.roomId}번 방에서 퇴장`,
         );
-      } else if (participant.isHost) {
-        await tx.chatRoom.update({
-          where: { id: roomId },
-          data: { deletedAt: new Date() },
-        });
-        this.logger.log(`${roomId}번 방 삭제`);
+        return {
+          userId: deletedUser.userId,
+          roomId: deletedUser.roomId,
+          nickname: deletedUser.user.profile.nickname,
+        };
+      } catch (error) {
+        if (attempt === 10) {
+          this.logger.error(error.stack);
+          throw error;
+        }
+        this.logger.log('사용자 퇴장 트랜잭션 재시도...');
       }
+    }
+  }
+
+  async delegateHost(roomId: number): Promise<boolean> {
+    const newHost = await this.prisma.chatParticipant.findFirst({
+      where: { roomId, isHost: false },
+      orderBy: { joinedAt: 'asc' },
     });
 
-    return roomId;
+    if (!newHost) {
+      return false;
+    }
+
+    await this.prisma.chatParticipant.update({
+      where: { userId: newHost.userId },
+      data: { isHost: true },
+    });
+    this.logger.log(
+      `${newHost.userId}번 사용자가 ${roomId}번 채팅방의 방장이 되었습니다.`,
+    );
+
+    return true;
   }
 
   async checkParticipantDuplication(userId: number): Promise<void> {
@@ -451,7 +490,7 @@ export class ChatService {
     };
   }
 
-  async findParticipantById(userId: number): Promise<UserWithNickname> {
+  async findParticipantById(userId: number): Promise<UserProfile> {
     const participant = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -469,7 +508,7 @@ export class ChatService {
     }
 
     return {
-      id: participant.id,
+      userId: participant.id,
       nickname: participant.profile.nickname,
     };
   }
@@ -527,7 +566,7 @@ export class ChatService {
     };
   }
 
-  async findParticipants(roomId: number): Promise<UserWithNickname[]> {
+  async findParticipants(roomId: number): Promise<UserProfile[]> {
     if (!roomId) {
       throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
     }
@@ -553,7 +592,7 @@ export class ChatService {
     }
 
     return participants.map((participant) => ({
-      id: participant.userId,
+      userId: participant.userId,
       nickname: participant.user.profile.nickname,
     }));
   }

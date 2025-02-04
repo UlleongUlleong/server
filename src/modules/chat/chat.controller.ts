@@ -4,7 +4,7 @@ import { HttpContent } from '../../common/interfaces/http-response.interface';
 import { RoomInfo } from './interfaces/room-info.interface';
 import { ChatService } from './chat.service';
 import { FindByOffsetDto } from './dtos/find-by-offset.dto';
-import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import { UserProfile } from './interfaces/user-profile.interface';
 
 @Controller('chat')
 export class ChatController {
@@ -54,7 +54,7 @@ export class ChatController {
   @Get('rooms/:id/participants')
   async getChatParticipants(
     @Param('id') id: string,
-  ): Promise<HttpContent<UserWithNickname[]>> {
+  ): Promise<HttpContent<UserProfile[]>> {
     const roomId = parseInt(id);
     const participants = await this.chatService.findParticipants(roomId);
 

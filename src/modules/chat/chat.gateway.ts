@@ -21,8 +21,10 @@ import { WsResponseInterceptor } from 'src/common/interceptors/ws-response.inter
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { WsContent } from 'src/common/interfaces/ws-response.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
-import { CreateRoomResponse } from './interfaces/create-room-response.interface';
-import { ParticipantInfo } from './interfaces/participant-info.interface';
+import {
+  RoomEntryInfo,
+  UserRoomInfo,
+} from './interfaces/user-profile.interface';
 
 @WebSocketGateway({ namespace: 'chat' })
 @UseInterceptors(WsResponseInterceptor, LoggingInterceptor)
@@ -76,7 +78,7 @@ export class ChatGateway {
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() createRoomDto: CreateRoomDto,
-  ): Promise<WsContent<CreateRoomResponse>> {
+  ): Promise<WsContent<UserRoomInfo>> {
     const user = client.data.user;
     const roomId = await this.chatService.createChatRoom(
       user.id,
@@ -90,7 +92,7 @@ export class ChatGateway {
       event: 'room_created',
       data: {
         roomId,
-        userId: participant.id,
+        userId: participant.userId,
         nickname: participant.nickname,
       },
     };
@@ -102,23 +104,23 @@ export class ChatGateway {
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() joinRoomDto: JoinRoomDto,
-  ): Promise<WsContent<ParticipantInfo>> {
+  ): Promise<WsContent<RoomEntryInfo>> {
     const user = client.data.user;
     const roomId = joinRoomDto.roomId;
-    const participant = await this.chatService.createParticipant(
+    const userEntryInfo = await this.chatService.createParticipant(
       user.id,
       roomId,
     );
 
     client.join(roomId.toString());
-    this.server.to(roomId.toString()).emit('user_joined', {
-      data: participant,
-      message: `${participant.nickname}님이 채팅방에 입장했습니다.`,
+    client.to(roomId.toString()).emit('user_joined', {
+      data: { userId: userEntryInfo.userId, nickname: userEntryInfo.nickname },
+      message: `${userEntryInfo.nickname}님이 채팅방에 입장했습니다.`,
     });
 
     return {
       event: 'room_joined',
-      data: participant,
+      data: userEntryInfo,
     };
   }
 
@@ -128,8 +130,9 @@ export class ChatGateway {
     @ConnectedSocket() client: Socket,
   ): Promise<WsContent<null>> {
     const user = client.data.user;
-    const roomId = await this.chatService.deleteParticipant(user.id);
-    const participant = await this.chatService.findParticipantById(user.id);
+    const { roomId, ...participant } = await this.chatService.deleteParticipant(
+      user.id,
+    );
 
     if (roomId) {
       client.leave(roomId.toString());
