@@ -29,7 +29,11 @@ import {
   CursorPagination,
   OffsetPagination,
 } from '../../common/interfaces/pagination.interface';
-import { UserWithNickname } from './interfaces/user-with-nickname.interface';
+import {
+  RoomEntryInfo,
+  UserRoomInfo,
+  UserProfile,
+} from './interfaces/user-profile.interface';
 import { NewMessage } from './interfaces/new-message.interface';
 import { SendMessageDto } from './dtos/send-message.dto';
 import { SafeUser } from '../user/interfaces/safe-user.interface';
@@ -110,13 +114,21 @@ export class ChatService {
       data: newRoom,
       select: { id: true },
     });
+    this.logger.log(`${userId}번 사용자가 ${room.id}번 채팅방을 생성`);
 
     return room.id;
   }
 
-  async createParticipant(userId: number, roomId: number): Promise<void> {
+  async createParticipant(
+    userId: number,
+    roomId: number,
+  ): Promise<RoomEntryInfo> {
     await this.checkParticipantDuplication(userId);
-    await this.checkRoomIdExists(roomId);
+    const room = await this.findRoomById(roomId);
+
+    if (room.maxParticipants === room.participants) {
+      throw new ForbiddenException('참여하려는 방의 인원 수가 최대입니다.');
+    }
 
     const newParticipant: Prisma.ChatParticipantCreateInput = {
       user: {
@@ -127,48 +139,111 @@ export class ChatService {
       },
     };
 
-    await this.prisma.chatParticipant.create({
+    const participant = await this.prisma.chatParticipant.create({
       data: newParticipant,
+      select: {
+        chatRoom: {
+          select: {
+            name: true,
+            themeId: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            profile: {
+              select: {
+                nickname: true,
+              },
+            },
+          },
+        },
+      },
     });
+    this.logger.log(`${userId}번 사용자가 ${roomId}번 채팅방에 참여`);
+
+    return {
+      userId: participant.user.id,
+      nickname: participant.user.profile.nickname,
+      themeId: participant.chatRoom.themeId,
+      roomName: participant.chatRoom.name,
+    };
   }
 
-  async deleteParticipant(userId: number): Promise<number> {
+  async deleteParticipant(userId: number): Promise<UserRoomInfo> {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: { userId },
     });
 
     if (!participant) {
-      return;
+      throw new NotFoundException('참가자를 찾을 수 없습니다.');
     }
 
-    const roomId = participant.roomId;
-    let hostCandidate: { userId: number } | undefined;
-    if (participant.isHost) {
-      hostCandidate = await this.prisma.chatParticipant.findFirst({
-        where: { roomId, userId: { not: userId } },
-        orderBy: { joinedAt: 'asc' },
-        select: { userId: true },
-      });
-    }
-    await this.prisma.$transaction(async (tx) => {
-      await tx.chatParticipant.delete({
-        where: { userId },
-      });
+    for (let attempt = 0; attempt < 10; ++attempt) {
+      try {
+        const deletedUser = await this.prisma.$transaction(async (tx) => {
+          if (participant.isHost) {
+            const isDelegated = await this.delegateHost(participant.roomId);
+            if (!isDelegated) {
+              await tx.chatRoom.update({
+                where: { id: participant.roomId },
+                data: { deletedAt: new Date() },
+              });
+              this.logger.log(`${participant.roomId}번 방이 삭제되었습니다.`);
+            }
+          }
 
-      if (hostCandidate) {
-        await tx.chatParticipant.update({
-          where: { userId: hostCandidate.userId },
-          data: { isHost: true },
+          return await tx.chatParticipant.delete({
+            where: { userId },
+            select: {
+              userId: true,
+              roomId: true,
+              user: {
+                select: {
+                  profile: true,
+                },
+              },
+            },
+          });
         });
-      } else if (participant.isHost) {
-        await tx.chatRoom.update({
-          where: { id: roomId },
-          data: { deletedAt: new Date() },
-        });
+
+        this.logger.log(
+          `${userId}번 사용자가 ${participant.roomId}번 방에서 퇴장`,
+        );
+        return {
+          userId: deletedUser.userId,
+          roomId: deletedUser.roomId,
+          nickname: deletedUser.user.profile.nickname,
+        };
+      } catch (error) {
+        if (attempt === 10) {
+          this.logger.error(error.stack);
+          throw error;
+        }
+        this.logger.log('사용자 퇴장 트랜잭션 재시도...');
       }
+    }
+  }
+
+  async delegateHost(roomId: number): Promise<boolean> {
+    const newHost = await this.prisma.chatParticipant.findFirst({
+      where: { roomId, isHost: false },
+      orderBy: { joinedAt: 'asc' },
     });
 
-    return roomId;
+    if (!newHost) {
+      return false;
+    }
+
+    await this.prisma.chatParticipant.update({
+      where: { userId: newHost.userId },
+      data: { isHost: true },
+    });
+    this.logger.log(
+      `${newHost.userId}번 사용자가 ${roomId}번 채팅방의 방장이 되었습니다.`,
+    );
+
+    return true;
   }
 
   async checkParticipantDuplication(userId: number): Promise<void> {
@@ -178,16 +253,6 @@ export class ChatService {
 
     if (participant) {
       throw new ConflictException('이미 참가한 채팅방이 존재합니다.');
-    }
-  }
-
-  async checkRoomIdExists(roomId: number): Promise<void> {
-    const room = await this.prisma.chatRoom.findUnique({
-      where: { id: roomId, deletedAt: null },
-    });
-
-    if (!room) {
-      throw new NotFoundException('채팅방이 존재하지 않습니다.');
     }
   }
 
@@ -244,7 +309,7 @@ export class ChatService {
       userId: message.userId,
       roomId: message.roomId,
       message: message.message,
-      loggedAt: new Date(message.createdAt),
+      loggedAt: message.createdAt,
     }));
 
     await this.prisma.chatLog.createMany({
@@ -415,14 +480,14 @@ export class ChatService {
     };
   }
 
-  async findParticipantById(userId: number): Promise<UserWithNickname> {
-    const participant = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async findParticipantById(userId: number): Promise<UserProfile> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
       select: {
-        id: true,
-        profile: {
+        userId: true,
+        user: {
           select: {
-            nickname: true,
+            profile: true,
           },
         },
       },
@@ -433,9 +498,21 @@ export class ChatService {
     }
 
     return {
-      id: participant.id,
-      nickname: participant.profile.nickname,
+      userId: participant.userId,
+      nickname: participant.user.profile.nickname,
     };
+  }
+
+  async isUserInRoom(userId: number): Promise<boolean> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { userId },
+    });
+
+    if (!participant) {
+      return false;
+    }
+
+    return true;
   }
 
   getAccessTokenFromCookie(cookieHeader: string): string {
@@ -491,7 +568,7 @@ export class ChatService {
     };
   }
 
-  async findParticipants(roomId: number): Promise<UserWithNickname[]> {
+  async findParticipants(roomId: number): Promise<UserProfile[]> {
     if (!roomId) {
       throw new BadRequestException('유효하지 않은 채팅방 ID 값입니다.');
     }
@@ -517,7 +594,7 @@ export class ChatService {
     }
 
     return participants.map((participant) => ({
-      id: participant.userId,
+      userId: participant.userId,
       nickname: participant.user.profile.nickname,
     }));
   }
