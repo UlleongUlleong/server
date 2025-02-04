@@ -124,7 +124,11 @@ export class ChatService {
     roomId: number,
   ): Promise<RoomEntryInfo> {
     await this.checkParticipantDuplication(userId);
-    await this.checkRoomIdExists(roomId);
+    const room = await this.findRoomById(roomId);
+
+    if (room.maxParticipants === room.participants) {
+      throw new ForbiddenException('참여하려는 방의 인원 수가 최대입니다.');
+    }
 
     const newParticipant: Prisma.ChatParticipantCreateInput = {
       user: {
@@ -249,16 +253,6 @@ export class ChatService {
 
     if (participant) {
       throw new ConflictException('이미 참가한 채팅방이 존재합니다.');
-    }
-  }
-
-  async checkRoomIdExists(roomId: number): Promise<void> {
-    const room = await this.prisma.chatRoom.findUnique({
-      where: { id: roomId, deletedAt: null },
-    });
-
-    if (!room) {
-      throw new NotFoundException('채팅방이 존재하지 않습니다.');
     }
   }
 
