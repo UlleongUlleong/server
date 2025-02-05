@@ -95,7 +95,14 @@ export class AlcoholService {
       take: limit ? Number(limit) + 1 : 10,
       cursor: cursor ? { id: Number(cursor) } : undefined,
     };
-    const orderParams: any = sort ? { [sort]: 'desc' } : { createdAt: 'asc' };
+    let orderParams;
+    if (!sort) {
+      orderParams = { createdAt: 'asc' };
+    } else if (sort === 'name') {
+      orderParams = { name: 'asc' };
+    } else {
+      orderParams = { [sort]: 'desc' };
+    }
     return await this.prisma.alcohol.findMany({
       where: whereConditions,
       ...paginationParams,
