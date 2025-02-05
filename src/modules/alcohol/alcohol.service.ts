@@ -6,7 +6,6 @@ import { CreateReviewDto } from './dtos/create-review.dto';
 import { Review } from './inerfaces/review.interface';
 import {
   CursorPagination,
-  OffsetPagination,
   Pagination,
 } from 'src/common/interfaces/pagination.interface';
 
@@ -19,55 +18,55 @@ export class AlcoholService {
     pagination: Pagination;
   }> {
     const alcoholList = await this.findAlcohol(query);
-    const pagination = query.cursor
-      ? await this.createCursorMeta(query, alcoholList)
-      : query.offset
-        ? await this.createOffsetMeta(query)
-        : await this.createCursorMeta(query, alcoholList);
+    const pagination = await this.createCursorMeta(query, alcoholList);
+    //query.cursor
+    // ? await this.createCursorMeta(query, alcoholList)
+    // : query.offset
+    //   ? await this.createOffsetMeta(query)
+    //   : await this.createCursorMeta(query, alcoholList);
     return {
-      data:
-        alcoholList.length === 1
-          ? alcoholList.map((alcohol) => ({
-              id: alcohol.id,
-              name: alcohol.name,
-              alcoholCategory: alcohol.alcoholCategory,
-              scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
-              reviewCount: alcohol.reviewCount,
-              imageUrl: alcohol.imageUrl,
-            }))
-          : alcoholList.slice(0, alcoholList.length - 1).map((alcohol) => ({
-              id: alcohol.id,
-              name: alcohol.name,
-              alcoholCategory: alcohol.alcoholCategory,
-              scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
-              reviewCount: alcohol.reviewCount,
-              imageUrl: alcohol.imageUrl,
-            })),
+      data: pagination.hasNext
+        ? alcoholList.slice(0, alcoholList.length - 1).map((alcohol) => ({
+            id: alcohol.id,
+            name: alcohol.name,
+            alcoholCategory: alcohol.alcoholCategory,
+            scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
+            reviewCount: alcohol.reviewCount,
+            imageUrl: alcohol.imageUrl,
+          }))
+        : alcoholList.map((alcohol) => ({
+            id: alcohol.id,
+            name: alcohol.name,
+            alcoholCategory: alcohol.alcoholCategory,
+            scoreAverage: parseFloat(alcohol.scoreAverage.toFixed(1)),
+            reviewCount: alcohol.reviewCount,
+            imageUrl: alcohol.imageUrl,
+          })),
       pagination,
     };
   }
 
-  async createOffsetMeta(query: AlcoholQueryDto): Promise<OffsetPagination> {
-    const totalAlcohols = await this.prisma.alcohol.count({
-      where: {
-        alcoholCategoryId: query.category ? Number(query.category) : undefined,
-        name: query.keyword ? { contains: query.keyword } : undefined,
-      },
-    });
+  // async createOffsetMeta(query: AlcoholQueryDto): Promise<OffsetPagination> {
+  //   const totalAlcohols = await this.prisma.alcohol.count({
+  //     where: {
+  //       alcoholCategoryId: query.category ? Number(query.category) : undefined,
+  //       name: query.keyword ? { contains: query.keyword } : undefined,
+  //     },
+  //   });
 
-    const totalPages = Math.ceil(totalAlcohols / (query.limit || 10));
+  //   const totalPages = Math.ceil(totalAlcohols / (query.limit || 10));
 
-    const page = query.offset
-      ? Math.floor(Number(query.offset) / (query.limit || 10)) + 1
-      : 1;
+  //   const page = query.offset
+  //     ? Math.floor(Number(query.offset) / (query.limit || 10)) + 1
+  //     : 1;
 
-    return {
-      totalItems: totalAlcohols,
-      itemsPerPage: query.limit || 10,
-      currentPage: page,
-      totalPages: totalPages,
-    };
-  }
+  //   return {
+  //     totalItems: totalAlcohols,
+  //     itemsPerPage: query.limit || 10,
+  //     currentPage: page,
+  //     totalPages: totalPages,
+  //   };
+  // }
 
   async createCursorMeta(
     query: AlcoholQueryDto,
@@ -85,14 +84,14 @@ export class AlcoholService {
   }
 
   async findAlcohol(query: AlcoholQueryDto): Promise<Alcohol[]> {
-    const { category, keyword, sort, offset, limit, cursor } = query;
+    const { category, keyword, sort, limit, cursor } = query;
     const whereConditions = {
       alcoholCategoryId: category ? Number(category) : undefined,
       name: keyword ? { contains: keyword } : undefined,
     };
     const paginationParams = {
-      skip: offset ? Number(offset) : undefined,
-      take: limit ? Number(limit) + 1 : 10,
+      //skip: offset ? Number(offset) : undefined,
+      take: limit ? Number(limit) + 1 : 11,
       cursor: cursor ? { id: Number(cursor) } : undefined,
     };
     let orderParams;
