@@ -18,10 +18,10 @@ export class AlcoholQueryDto {
   })
   sort?: string;
 
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  offset?: number;
+  // @IsOptional()
+  // @IsInt()
+  // @Type(() => Number)
+  // offset?: number;
 
   @IsOptional()
   @IsInt()
